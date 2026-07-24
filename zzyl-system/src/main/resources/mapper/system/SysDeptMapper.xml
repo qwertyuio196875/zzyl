@@ -74,12 +74,28 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		where del_flag = '0' and parent_id = #{deptId} limit 1
 	</select>
 	
+	<!--
+		优化说明（P0-1）：原 SQL 使用 find_in_set(#{deptId}, ancestors) 无法命中索引 -> 全表扫描。
+		ancestors 形如 ",100,101,,"，改用前缀 LIKE 即可走 ancestors 前缀索引；
+		同时 OR dept_id = #{deptId} 兜底"祖先为空但自身命中"的边界场景。
+		详见 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §4.3。
+	-->
 	<select id="selectChildrenDeptById" parameterType="Long" resultMap="SysDeptResult">
-		select * from sys_dept where find_in_set(#{deptId}, ancestors)
+		SELECT d.dept_id, d.parent_id, d.ancestors, d.dept_name, d.order_num,
+		       d.leader, d.phone, d.email, d.status, d.del_flag,
+		       d.create_by, d.create_time, d.update_by, d.update_time
+		  FROM sys_dept d
+		 WHERE (d.ancestors LIKE CONCAT('%,', #{deptId}, ',%')
+		    OR d.dept_id = #{deptId})
 	</select>
-	
+
 	<select id="selectNormalChildrenDeptById" parameterType="Long" resultType="int">
-		select count(*) from sys_dept where status = 0 and del_flag = '0' and find_in_set(#{deptId}, ancestors)
+		SELECT COUNT(*)
+		  FROM sys_dept
+		 WHERE del_flag = '0'
+		   AND status = 0
+		   AND (ancestors LIKE CONCAT('%,', #{deptId}, ',%')
+		    OR dept_id = #{deptId})
 	</select>
 	
 	<select id="checkDeptNameUnique" resultMap="SysDeptResult">

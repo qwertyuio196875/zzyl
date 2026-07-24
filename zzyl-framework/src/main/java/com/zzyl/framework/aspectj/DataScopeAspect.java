@@ -111,7 +111,11 @@ public class DataScopeAspect
             }
             else if (Constants.Dept.DATA_SCOPE_DEPT_AND_CHILD.equals(dataScope))
             {
-                sqlString.append(StringUtils.format(" OR {}.{} IN ( SELECT dept_id FROM sys_dept WHERE dept_id = {} or find_in_set( {} , ancestors ) )", deptAlias, deptField, user.getDeptId(), user.getDeptId()));
+                // 优化（P0-1）：将 find_in_set 替换为 ancestors 前缀 LIKE，可命中前缀索引；
+                // 详见 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P0-1
+                sqlString.append(StringUtils.format(
+                    " OR {}.{} IN ( SELECT dept_id FROM sys_dept WHERE dept_id = {} OR ancestors LIKE CONCAT('%,', {}, ',%') )",
+                    deptAlias, deptField, user.getDeptId(), user.getDeptId()));
             }
             else if (Constants.Dept.DATA_SCOPE_SELF.equals(dataScope))
             {

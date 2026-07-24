@@ -80,7 +80,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 			AND date_format(u.create_time,'%Y%m%d') &lt;= date_format(#{params.endTime},'%Y%m%d')
 		</if>
 		<if test="deptId != null and deptId != 0">
-			AND (u.dept_id = #{deptId} OR u.dept_id IN ( SELECT t.dept_id FROM sys_dept t WHERE find_in_set(#{deptId}, ancestors) ))
+			<!-- 优化：避免 find_in_set 全表扫描，改用 ancestors 前缀 LIKE；详见 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P0-1 -->
+			AND (u.dept_id = #{deptId} OR u.dept_id IN (
+				SELECT t.dept_id FROM sys_dept t
+				 WHERE t.ancestors LIKE CONCAT('%,', #{deptId}, ',%')
+				    OR t.dept_id = #{deptId}
+			))
 		</if>
 		<!-- 数据范围过滤 -->
 		${params.dataScope}
