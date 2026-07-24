@@ -9,12 +9,25 @@ PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
         <setting name="cacheEnabled"             value="true"   />
         <!-- 允许JDBC 支持自动生成主键 -->
         <setting name="useGeneratedKeys"         value="true"   />
-        <!-- 配置默认的执行器.SIMPLE就是普通执行器;REUSE执行器会重用预处理语句(prepared statements);BATCH执行器将重用语句并执行批量更新 -->
+        <!-- 配置默认的执行执行器.SIMPLE就是普通执行器;REUSE执行器会重用预处理语句(prepared statements);BATCH执行器将重用语句并执行批量更新 -->
         <setting name="defaultExecutorType"      value="SIMPLE" />
 		<!-- 指定 MyBatis 所用日志的具体实现 -->
         <setting name="logImpl"                  value="SLF4J"  />
         <!-- 使用驼峰命名法转换字段 -->
 		<!-- <setting name="mapUnderscoreToCamelCase" value="true"/> -->
 	</settings>
-	
+
+    <!-- 全局 TypeHandler 注册 (P0-3 visit_record 类型修复) -->
+    <!--
+        为 visit_record.visit_date / visit_time 提供 String ↔ DATE/TIME 的自动转换，
+        以最小侵入方式修复 varchar(20) → DATE/TIME。
+        详见 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P0-3
+    -->
+    <typeHandlers>
+        <typeHandler handler="com.zzyl.framework.handler.StringToDateTypeHandler"
+                     javaType="java.lang.String" jdbcType="DATE"/>
+        <typeHandler handler="com.zzyl.framework.handler.StringToTimeTypeHandler"
+                     javaType="java.lang.String" jdbcType="TIME"/>
+    </typeHandlers>
+
 </configuration>

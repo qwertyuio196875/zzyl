@@ -12,8 +12,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="visitedName"    column="visited_name"    />
         <result property="visitedDept"    column="visited_dept"    />
         <result property="visitReason"    column="visit_reason"    />
-        <result property="visitDate"    column="visit_date"    />
-        <result property="visitTime"    column="visit_time"    />
+            <result property="visitDate"    column="visit_date"    jdbcType="DATE"    />
+            <result property="visitTime"    column="visit_time"    jdbcType="TIME"    />
         <result property="actualVisitTime"    column="actual_visit_time"    />
         <result property="leaveTime"    column="leave_time"    />
         <result property="status"    column="status"    />
