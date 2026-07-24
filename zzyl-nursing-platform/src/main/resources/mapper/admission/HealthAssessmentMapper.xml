@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzyl.admission.mapper.HealthAssessmentMapper">
+
+    <resultMap type="com.zzyl.admission.domain.HealthAssessment" id="HealthAssessmentResult">
+        <result property="id" column="id"/>
+        <result property="assessmentNo" column="assessment_no"/>
+        <result property="elderName" column="elder_name"/>
+        <result property="idCard" column="id_card"/>
+        <result property="gender" column="gender"/>
+        <result property="age" column="age"/>
+        <result property="phone" column="phone"/>
+        <result property="assessmentDate" column="assessment_date"/>
+        <result property="assessor" column="assessor"/>
+        <result property="healthLevel" column="health_level"/>
+        <result property="cognitiveLevel" column="cognitive_level"/>
+        <result property="mobilityLevel" column="mobility_level"/>
+        <result property="selfCareLevel" column="self_care_level"/>
+        <result property="medicalHistory" column="medical_history"/>
+        <result property="allergyHistory" column="allergy_history"/>
+        <result property="assessmentConclusion" column="assessment_conclusion"/>
+        <result property="status" column="status"/>
+        <result property="createBy" column="create_by"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectHealthAssessmentVo">
+        select id, assessment_no, elder_name, id_card, gender, age, phone, assessment_date, assessor,
+               health_level, cognitive_level, mobility_level, self_care_level, medical_history, allergy_history,
+               assessment_conclusion, status, create_by, update_by, remark, create_time, update_time
+        from health_assessment
+    </sql>
+
+    <select id="selectHealthAssessmentList" parameterType="com.zzyl.admission.domain.HealthAssessment" resultMap="HealthAssessmentResult">
+        <include refid="selectHealthAssessmentVo"/>
+        <where>
+            <if test="elderName != null and elderName != ''"> and elder_name like concat('%', #{elderName}, '%')</if>
+            <if test="assessmentNo != null and assessmentNo != ''"> and assessment_no like concat('%', #{assessmentNo}, '%')</if>
+            <if test="idCard != null and idCard != ''"> and id_card like concat('%', #{idCard}, '%')</if>
+            <if test="status != null and status != ''"> and status = #{status}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectHealthAssessmentById" parameterType="Long" resultMap="HealthAssessmentResult">
+        <include refid="selectHealthAssessmentVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertHealthAssessment" parameterType="com.zzyl.admission.domain.HealthAssessment" useGeneratedKeys="true" keyProperty="id">
+        insert into health_assessment
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="assessmentNo != null">assessment_no,</if>
+            <if test="elderName != null">elder_name,</if>
+            <if test="idCard != null">id_card,</if>
+            <if test="gender != null">gender,</if>
+            <if test="age != null">age,</if>
+            <if test="phone != null">phone,</if>
+            <if test="assessmentDate != null">assessment_date,</if>
+            <if test="assessor != null">assessor,</if>
+            <if test="healthLevel != null">health_level,</if>
+            <if test="cognitiveLevel != null">cognitive_level,</if>
+            <if test="mobilityLevel != null">mobility_level,</if>
+            <if test="selfCareLevel != null">self_care_level,</if>
+            <if test="medicalHistory != null">medical_history,</if>
+            <if test="allergyHistory != null">allergy_history,</if>
+            <if test="assessmentConclusion != null">assessment_conclusion,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="assessmentNo != null">#{assessmentNo},</if>
+            <if test="elderName != null">#{elderName},</if>
+            <if test="idCard != null">#{idCard},</if>
+            <if test="gender != null">#{gender},</if>
+            <if test="age != null">#{age},</if>
+            <if test="phone != null">#{phone},</if>
+            <if test="assessmentDate != null">#{assessmentDate},</if>
+            <if test="assessor != null">#{assessor},</if>
+            <if test="healthLevel != null">#{healthLevel},</if>
+            <if test="cognitiveLevel != null">#{cognitiveLevel},</if>
+            <if test="mobilityLevel != null">#{mobilityLevel},</if>
+            <if test="selfCareLevel != null">#{selfCareLevel},</if>
+            <if test="medicalHistory != null">#{medicalHistory},</if>
+            <if test="allergyHistory != null">#{allergyHistory},</if>
+            <if test="assessmentConclusion != null">#{assessmentConclusion},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateHealthAssessment" parameterType="com.zzyl.admission.domain.HealthAssessment">
+        update health_assessment
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="elderName != null">elder_name = #{elderName},</if>
+            <if test="idCard != null">id_card = #{idCard},</if>
+            <if test="gender != null">gender = #{gender},</if>
+            <if test="age != null">age = #{age},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="assessmentDate != null">assessment_date = #{assessmentDate},</if>
+            <if test="assessor != null">assessor = #{assessor},</if>
+            <if test="healthLevel != null">health_level = #{healthLevel},</if>
+            <if test="cognitiveLevel != null">cognitive_level = #{cognitiveLevel},</if>
+            <if test="mobilityLevel != null">mobility_level = #{mobilityLevel},</if>
+            <if test="selfCareLevel != null">self_care_level = #{selfCareLevel},</if>
+            <if test="medicalHistory != null">medical_history = #{medicalHistory},</if>
+            <if test="allergyHistory != null">allergy_history = #{allergyHistory},</if>
+            <if test="assessmentConclusion != null">assessment_conclusion = #{assessmentConclusion},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteHealthAssessmentById" parameterType="Long">
+        delete from health_assessment where id = #{id}
+    </delete>
+
+    <delete id="deleteHealthAssessmentByIds" parameterType="String">
+        delete from health_assessment where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

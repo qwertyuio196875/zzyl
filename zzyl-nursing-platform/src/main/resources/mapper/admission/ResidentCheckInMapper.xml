@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzyl.admission.mapper.ResidentCheckInMapper">
+
+    <resultMap type="com.zzyl.admission.domain.ResidentCheckIn" id="ResidentCheckInResult">
+        <result property="id" column="id"/>
+        <result property="checkInNo" column="check_in_no"/>
+        <result property="assessmentId" column="assessment_id"/>
+        <result property="elderName" column="elder_name"/>
+        <result property="idCard" column="id_card"/>
+        <result property="gender" column="gender"/>
+        <result property="age" column="age"/>
+        <result property="phone" column="phone"/>
+        <result property="nursingLevelId" column="nursing_level_id"/>
+        <result property="nursingLevelName" column="nursing_level_name"/>
+        <result property="nursingPlanId" column="nursing_plan_id"/>
+        <result property="nursingPlanName" column="nursing_plan_name"/>
+        <result property="buildingName" column="building_name"/>
+        <result property="roomNo" column="room_no"/>
+        <result property="bedNo" column="bed_no"/>
+        <result property="checkInDate" column="check_in_date"/>
+        <result property="contractStartDate" column="contract_start_date"/>
+        <result property="contractEndDate" column="contract_end_date"/>
+        <result property="emergencyContact" column="emergency_contact"/>
+        <result property="emergencyPhone" column="emergency_phone"/>
+        <result property="relationship" column="relationship"/>
+        <result property="deposit" column="deposit"/>
+        <result property="monthlyFee" column="monthly_fee"/>
+        <result property="handler" column="handler"/>
+        <result property="status" column="status"/>
+        <result property="createBy" column="create_by"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectResidentCheckInVo">
+        select id, check_in_no, assessment_id, elder_name, id_card, gender, age, phone,
+               nursing_level_id, nursing_level_name, nursing_plan_id, nursing_plan_name,
+               building_name, room_no, bed_no, check_in_date, contract_start_date, contract_end_date,
+               emergency_contact, emergency_phone, relationship, deposit, monthly_fee, handler, status,
+               create_by, update_by, remark, create_time, update_time
+        from resident_check_in
+    </sql>
+
+    <select id="selectResidentCheckInList" parameterType="com.zzyl.admission.domain.ResidentCheckIn" resultMap="ResidentCheckInResult">
+        <include refid="selectResidentCheckInVo"/>
+        <where>
+            <if test="elderName != null and elderName != ''"> and elder_name like concat('%', #{elderName}, '%')</if>
+            <if test="checkInNo != null and checkInNo != ''"> and check_in_no like concat('%', #{checkInNo}, '%')</if>
+            <if test="bedNo != null and bedNo != ''"> and bed_no like concat('%', #{bedNo}, '%')</if>
+            <if test="status != null and status != ''"> and status = #{status}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectCheckedInList" resultMap="ResidentCheckInResult">
+        <include refid="selectResidentCheckInVo"/>
+        where status = '2'
+        order by check_in_date desc
+    </select>
+
+    <select id="selectResidentCheckInById" parameterType="Long" resultMap="ResidentCheckInResult">
+        <include refid="selectResidentCheckInVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertResidentCheckIn" parameterType="com.zzyl.admission.domain.ResidentCheckIn" useGeneratedKeys="true" keyProperty="id">
+        insert into resident_check_in
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="checkInNo != null">check_in_no,</if>
+            <if test="assessmentId != null">assessment_id,</if>
+            <if test="elderName != null">elder_name,</if>
+            <if test="idCard != null">id_card,</if>
+            <if test="gender != null">gender,</if>
+            <if test="age != null">age,</if>
+            <if test="phone != null">phone,</if>
+            <if test="nursingLevelId != null">nursing_level_id,</if>
+            <if test="nursingLevelName != null">nursing_level_name,</if>
+            <if test="nursingPlanId != null">nursing_plan_id,</if>
+            <if test="nursingPlanName != null">nursing_plan_name,</if>
+            <if test="buildingName != null">building_name,</if>
+            <if test="roomNo != null">room_no,</if>
+            <if test="bedNo != null">bed_no,</if>
+            <if test="checkInDate != null">check_in_date,</if>
+            <if test="contractStartDate != null">contract_start_date,</if>
+            <if test="contractEndDate != null">contract_end_date,</if>
+            <if test="emergencyContact != null">emergency_contact,</if>
+            <if test="emergencyPhone != null">emergency_phone,</if>
+            <if test="relationship != null">relationship,</if>
+            <if test="deposit != null">deposit,</if>
+            <if test="monthlyFee != null">monthly_fee,</if>
+            <if test="handler != null">handler,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="checkInNo != null">#{checkInNo},</if>
+            <if test="assessmentId != null">#{assessmentId},</if>
+            <if test="elderName != null">#{elderName},</if>
+            <if test="idCard != null">#{idCard},</if>
+            <if test="gender != null">#{gender},</if>
+            <if test="age != null">#{age},</if>
+            <if test="phone != null">#{phone},</if>
+            <if test="nursingLevelId != null">#{nursingLevelId},</if>
+            <if test="nursingLevelName != null">#{nursingLevelName},</if>
+            <if test="nursingPlanId != null">#{nursingPlanId},</if>
+            <if test="nursingPlanName != null">#{nursingPlanName},</if>
+            <if test="buildingName != null">#{buildingName},</if>
+            <if test="roomNo != null">#{roomNo},</if>
+            <if test="bedNo != null">#{bedNo},</if>
+            <if test="checkInDate != null">#{checkInDate},</if>
+            <if test="contractStartDate != null">#{contractStartDate},</if>
+            <if test="contractEndDate != null">#{contractEndDate},</if>
+            <if test="emergencyContact != null">#{emergencyContact},</if>
+            <if test="emergencyPhone != null">#{emergencyPhone},</if>
+            <if test="relationship != null">#{relationship},</if>
+            <if test="deposit != null">#{deposit},</if>
+            <if test="monthlyFee != null">#{monthlyFee},</if>
+            <if test="handler != null">#{handler},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateResidentCheckIn" parameterType="com.zzyl.admission.domain.ResidentCheckIn">
+        update resident_check_in
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="assessmentId != null">assessment_id = #{assessmentId},</if>
+            <if test="elderName != null">elder_name = #{elderName},</if>
+            <if test="idCard != null">id_card = #{idCard},</if>
+            <if test="gender != null">gender = #{gender},</if>
+            <if test="age != null">age = #{age},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="nursingLevelId != null">nursing_level_id = #{nursingLevelId},</if>
+            <if test="nursingLevelName != null">nursing_level_name = #{nursingLevelName},</if>
+            <if test="nursingPlanId != null">nursing_plan_id = #{nursingPlanId},</if>
+            <if test="nursingPlanName != null">nursing_plan_name = #{nursingPlanName},</if>
+            <if test="buildingName != null">building_name = #{buildingName},</if>
+            <if test="roomNo != null">room_no = #{roomNo},</if>
+            <if test="bedNo != null">bed_no = #{bedNo},</if>
+            <if test="checkInDate != null">check_in_date = #{checkInDate},</if>
+            <if test="contractStartDate != null">contract_start_date = #{contractStartDate},</if>
+            <if test="contractEndDate != null">contract_end_date = #{contractEndDate},</if>
+            <if test="emergencyContact != null">emergency_contact = #{emergencyContact},</if>
+            <if test="emergencyPhone != null">emergency_phone = #{emergencyPhone},</if>
+            <if test="relationship != null">relationship = #{relationship},</if>
+            <if test="deposit != null">deposit = #{deposit},</if>
+            <if test="monthlyFee != null">monthly_fee = #{monthlyFee},</if>
+            <if test="handler != null">handler = #{handler},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteResidentCheckInById" parameterType="Long">
+        delete from resident_check_in where id = #{id}
+    </delete>
+
+    <delete id="deleteResidentCheckInByIds" parameterType="String">
+        delete from resident_check_in where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

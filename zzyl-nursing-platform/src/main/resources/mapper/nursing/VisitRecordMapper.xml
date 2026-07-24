@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzyl.nursing.mapper.VisitRecordMapper">
+    
+    <resultMap type="VisitRecord" id="VisitRecordResult">
+        <result property="id"    column="id"    />
+        <result property="visitorName"    column="visitor_name"    />
+        <result property="visitorPhone"    column="visitor_phone"    />
+        <result property="visitorIdCard"    column="visitor_id_card"    />
+        <result property="visitedName"    column="visited_name"    />
+        <result property="visitedDept"    column="visited_dept"    />
+        <result property="visitReason"    column="visit_reason"    />
+        <result property="visitDate"    column="visit_date"    />
+        <result property="visitTime"    column="visit_time"    />
+        <result property="actualVisitTime"    column="actual_visit_time"    />
+        <result property="leaveTime"    column="leave_time"    />
+        <result property="status"    column="status"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="remark"    column="remark"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectVisitRecordVo">
+        select id, visitor_name, visitor_phone, visitor_id_card, visited_name, visited_dept, visit_reason, visit_date, visit_time, actual_visit_time, leave_time, status, create_by, update_by, remark, create_time, update_time from visit_record
+    </sql>
+
+    <select id="selectVisitRecordList" parameterType="VisitRecord" resultMap="VisitRecordResult">
+        <include refid="selectVisitRecordVo"/>
+        <where>  
+            <if test="visitorName != null and visitorName != ''"> and visitor_name like concat('%', #{visitorName}, '%')</if>
+            <if test="visitedName != null and visitedName != ''"> and visited_name like concat('%', #{visitedName}, '%')</if>
+            <if test="status != null "> and status = #{status}</if>
+            <if test="params.beginVisitDate != null and params.beginVisitDate != ''"> and visit_date &gt;= #{params.beginVisitDate}</if>
+            <if test="params.endVisitDate != null and params.endVisitDate != ''"> and visit_date &lt;= #{params.endVisitDate}</if>
+        </where>
+        order by visit_date desc, visit_time desc
+    </select>
+    
+    <select id="selectVisitRecordById" parameterType="Long" resultMap="VisitRecordResult">
+        <include refid="selectVisitRecordVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertVisitRecord" parameterType="VisitRecord" useGeneratedKeys="true" keyProperty="id">
+        insert into visit_record
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="visitorName != null and visitorName != ''">visitor_name,</if>
+            <if test="visitorPhone != null and visitorPhone != ''">visitor_phone,</if>
+            <if test="visitorIdCard != null">visitor_id_card,</if>
+            <if test="visitedName != null and visitedName != ''">visited_name,</if>
+            <if test="visitedDept != null">visited_dept,</if>
+            <if test="visitReason != null">visit_reason,</if>
+            <if test="visitDate != null">visit_date,</if>
+            <if test="visitTime != null">visit_time,</if>
+            <if test="actualVisitTime != null">actual_visit_time,</if>
+            <if test="leaveTime != null">leave_time,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="visitorName != null and visitorName != ''">#{visitorName},</if>
+            <if test="visitorPhone != null and visitorPhone != ''">#{visitorPhone},</if>
+            <if test="visitorIdCard != null">#{visitorIdCard},</if>
+            <if test="visitedName != null and visitedName != ''">#{visitedName},</if>
+            <if test="visitedDept != null">#{visitedDept},</if>
+            <if test="visitReason != null">#{visitReason},</if>
+            <if test="visitDate != null">#{visitDate},</if>
+            <if test="visitTime != null">#{visitTime},</if>
+            <if test="actualVisitTime != null">#{actualVisitTime},</if>
+            <if test="leaveTime != null">#{leaveTime},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateVisitRecord" parameterType="VisitRecord">
+        update visit_record
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="visitorName != null and visitorName != ''">visitor_name = #{visitorName},</if>
+            <if test="visitorPhone != null and visitorPhone != ''">visitor_phone = #{visitorPhone},</if>
+            <if test="visitorIdCard != null">visitor_id_card = #{visitorIdCard},</if>
+            <if test="visitedName != null and visitedName != ''">visited_name = #{visitedName},</if>
+            <if test="visitedDept != null">visited_dept = #{visitedDept},</if>
+            <if test="visitReason != null">visit_reason = #{visitReason},</if>
+            <if test="visitDate != null">visit_date = #{visitDate},</if>
+            <if test="visitTime != null">visit_time = #{visitTime},</if>
+            <if test="actualVisitTime != null">actual_visit_time = #{actualVisitTime},</if>
+            <if test="leaveTime != null">leave_time = #{leaveTime},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteVisitRecordById" parameterType="Long">
+        delete from visit_record where id = #{id}
+    </delete>
+
+    <delete id="deleteVisitRecordByIds" parameterType="String">
+        delete from visit_record where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>
