@@ -144,4 +144,29 @@ public interface SysUserMapper
      * @return 结果
      */
     public SysUser checkEmailUnique(String email);
+
+    /**
+     * 通过用户名集合批量查询用户（用于 importUser 的 N+1 修复；详见
+     * DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P0-2）
+     *
+     * @param userNames 用户名集合
+     * @return 用户信息集合
+     */
+    public List<SysUser> selectUsersByUserNames(List<String> userNames);
+
+    /**
+     * 批量插入用户（用于 importUser 的 N+1 修复）
+     *
+     * @param list 用户列表
+     * @return 影响行数
+     */
+    public int batchInsertUser(List<SysUser> list);
+
+    /**
+     * 批量更新用户（用于 importUser 的 N+1 修复；使用 CASE WHEN 原子更新）
+     *
+     * @param list 用户列表，必须含 userId
+     * @return 影响行数
+     */
+    public int batchUpdateUser(List<SysUser> list);
 }

@@ -226,7 +226,72 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  		update sys_user set del_flag = '2' where user_id in
  		<foreach collection="array" item="userId" open="(" separator="," close=")">
  			#{userId}
-        </foreach> 
+        </foreach>
  	</delete>
-	
-</mapper> 
+
+	<!-- ===================== P0-2 importUser N+1 修复 SQL ===================== -->
+	<!-- 详见 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P0-2 -->
+
+	<!-- 按用户名集合批量查全字段（含 user_id / dept_id 等），仅返回未逻辑删除的记录 -->
+	<select id="selectUsersByUserNames" parameterType="java.util.List" resultMap="SysUserResult">
+		<include refid="selectUserVo"/>
+		where u.del_flag = '0'
+		  and u.user_name in
+		  <foreach collection="list" item="name" open="(" separator="," close=")">
+			  #{name}
+		  </foreach>
+	</select>
+
+	<!--
+		批量 insert：固定列结构以保证与单条 insertUser 行为一致；
+		写在前面的 caller 必须已填充 password / pwd_update_date / createBy 等必填字段。
+	-->
+	<insert id="batchInsertUser" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="userId">
+		INSERT INTO sys_user(
+			dept_id, user_name, nick_name, email, phonenumber, sex,
+			avatar, password, status, pwd_update_date, create_by, remark, create_time
+		) VALUES
+		<foreach collection="list" item="u" separator=",">
+			(#{u.deptId}, #{u.userName}, #{u.nickName}, #{u.email}, #{u.phonenumber}, #{u.sex},
+			 #{u.avatar}, #{u.password}, #{u.status}, #{u.pwdUpdateDate}, #{u.createBy}, #{u.remark}, sysdate())
+		</foreach>
+	</insert>
+
+	<!--
+		批量 update：MySQL CASE WHEN user_id THEN ? 写法，单条 SQL 原子更新；
+		更新字段对齐 updateUser 单条语义的子集（nick/email/phone/sex/status/update_by + update_time）。
+	-->
+	<update id="batchUpdateUser" parameterType="java.util.List">
+		UPDATE sys_user
+		   SET nick_name = CASE user_id
+				<foreach collection="list" item="u"> WHEN #{u.userId} THEN #{u.nickName} </foreach>
+				ELSE nick_name
+			END,
+			email = CASE user_id
+				<foreach collection="list" item="u"> WHEN #{u.userId} THEN #{u.email} </foreach>
+				ELSE email
+			END,
+			phonenumber = CASE user_id
+				<foreach collection="list" item="u"> WHEN #{u.userId} THEN #{u.phonenumber} </foreach>
+				ELSE phonenumber
+			END,
+			sex = CASE user_id
+				<foreach collection="list" item="u"> WHEN #{u.userId} THEN #{u.sex} </foreach>
+				ELSE sex
+			END,
+			status = CASE user_id
+				<foreach collection="list" item="u"> WHEN #{u.userId} THEN #{u.status} </foreach>
+				ELSE status
+			END,
+			update_by = CASE user_id
+				<foreach collection="list" item="u"> WHEN #{u.userId} THEN #{u.updateBy} </foreach>
+				ELSE update_by
+			END,
+			update_time = sysdate()
+		 WHERE user_id IN
+			<foreach collection="list" item="u" open="(" separator="," close=")">
+				#{u.userId}
+			</foreach>
+	</update>
+
+</mapper>

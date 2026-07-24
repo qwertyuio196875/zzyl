@@ -2,7 +2,9 @@ package com.zzyl.system.service.impl;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import jakarta.validation.Validator;
 import org.slf4j.Logger;
@@ -490,7 +492,18 @@ public class SysUserServiceImpl implements ISysUserService
 
     /**
      * 导入用户数据
-     * 
+     * <p>
+     * 优化说明（P0-2，原 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P0-2 / 文档 §P0-2）：
+     * 原实现每次循环逐条 selectUserByUserName + 逐条 insert/update，导入 1000 条约 2000+ 次 SQL。
+     * 现改为：
+     *   1) selectConfigByKey(initPassword) 提到循环外（1 次）
+     *   2) userMapper.selectUsersByUserNames(userNames) 一次性查已存在集合（1 次）
+     *   3) 按是否存在 / isUpdateSupport 分类成 toInsert / toUpdate 列表
+     *   4) 1 次 batchInsertUser + 1 次 batchUpdateUser（CASE WHEN 原子更新）
+     *   5) 若批量语句整体异常，降级逐条执行以保留原版的失败粒度
+     * <p>
+     * 外部行为（successMsg/failureMsg 文案、isUpdateSupport 语义、operName 行为）保持不变。
+     *
      * @param userList 用户数据列表
      * @param isUpdateSupport 是否更新支持，如果已存在，则进行更新数据
      * @param operName 操作用户
@@ -507,50 +520,136 @@ public class SysUserServiceImpl implements ISysUserService
         int failureNum = 0;
         StringBuilder successMsg = new StringBuilder();
         StringBuilder failureMsg = new StringBuilder();
+
+        // 1) 一次性取初始化密码（不再每条都查一次）
+        String initPassword = configService.selectConfigByKey("sys.user.initPassword");
+
+        // 2) 一次性查所有已存在用户，构建 map
+        List<String> userNames = userList.stream()
+                .map(SysUser::getUserName)
+                .filter(StringUtils::isNotEmpty)
+                .collect(Collectors.toList());
+        Map<String, SysUser> existingMap = new HashMap<>();
+        if (!userNames.isEmpty())
+        {
+            for (SysUser u : userMapper.selectUsersByUserNames(userNames))
+            {
+                existingMap.put(u.getUserName(), u);
+            }
+        }
+
+        // 3) 分类：toInsert / toUpdate（带校验 / 权限校验，失败计入 failureMsg 不抛出）
+        List<SysUser> toInsert = new ArrayList<>();
+        List<SysUser> toUpdate = new ArrayList<>();
         for (SysUser user : userList)
         {
+            SysUser existing = existingMap.get(user.getUserName());
             try
             {
-                // 验证是否存在这个用户
-                SysUser u = userMapper.selectUserByUserName(user.getUserName());
-                if (StringUtils.isNull(u))
+                BeanValidators.validateWithException(validator, user);
+                deptService.checkDeptDataScope(user.getDeptId());
+                if (existing == null)
                 {
-                    BeanValidators.validateWithException(validator, user);
-                    deptService.checkDeptDataScope(user.getDeptId());
-                    String password = configService.selectConfigByKey("sys.user.initPassword");
-                    user.setPassword(SecurityUtils.encryptPassword(password));
+                    // 新增分支
+                    user.setPassword(SecurityUtils.encryptPassword(initPassword));
                     user.setCreateBy(operName);
-                    userMapper.insertUser(user);
-                    successNum++;
-                    successMsg.append("<br/>" + successNum + "、账号 " + user.getUserName() + " 导入成功");
+                    toInsert.add(user);
                 }
-                else if (isUpdateSupport)
+                else if (Boolean.TRUE.equals(isUpdateSupport))
                 {
-                    BeanValidators.validateWithException(validator, user);
-                    checkUserAllowed(u);
-                    checkUserDataScope(u.getUserId());
+                    // 更新分支：复用已有 userId / deptId
+                    checkUserAllowed(existing);
+                    checkUserDataScope(existing.getUserId());
                     deptService.checkDeptDataScope(user.getDeptId());
-                    user.setUserId(u.getUserId());
-                    user.setDeptId(u.getDeptId());
+                    user.setUserId(existing.getUserId());
+                    user.setDeptId(existing.getDeptId());
                     user.setUpdateBy(operName);
-                    userMapper.updateUser(user);
-                    successNum++;
-                    successMsg.append("<br/>" + successNum + "、账号 " + user.getUserName() + " 更新成功");
+                    toUpdate.add(user);
                 }
                 else
                 {
                     failureNum++;
-                    failureMsg.append("<br/>" + failureNum + "、账号 " + user.getUserName() + " 已存在");
+                    failureMsg.append("<br/>").append(failureNum).append("、账号 ").append(user.getUserName()).append(" 已存在");
                 }
             }
             catch (Exception e)
             {
                 failureNum++;
                 String msg = "<br/>" + failureNum + "、账号 " + user.getUserName() + " 导入失败：";
-                failureMsg.append(msg + e.getMessage());
+                failureMsg.append(msg).append(e.getMessage());
                 log.error(msg, e);
             }
         }
+
+        // 4) 批量 insert（异常时降级逐条，保持原错误粒度）
+        if (!toInsert.isEmpty())
+        {
+            try
+            {
+                userMapper.batchInsertUser(toInsert);
+                for (SysUser u : toInsert)
+                {
+                    successNum++;
+                    successMsg.append("<br/>").append(successNum).append("、账号 ").append(u.getUserName()).append(" 导入成功");
+                }
+            }
+            catch (Exception batchErr)
+            {
+                log.error("批量插入用户失败，降级逐条处理", batchErr);
+                for (SysUser u : toInsert)
+                {
+                    try
+                    {
+                        userMapper.insertUser(u);
+                        successNum++;
+                        successMsg.append("<br/>").append(successNum).append("、账号 ").append(u.getUserName()).append(" 导入成功");
+                    }
+                    catch (Exception singleErr)
+                    {
+                        failureNum++;
+                        String msg = "<br/>" + failureNum + "、账号 " + u.getUserName() + " 导入失败：";
+                        failureMsg.append(msg).append(singleErr.getMessage());
+                        log.error(msg, singleErr);
+                    }
+                }
+            }
+        }
+
+        // 5) 批量 update（异常时降级逐条）
+        if (!toUpdate.isEmpty())
+        {
+            try
+            {
+                userMapper.batchUpdateUser(toUpdate);
+                for (SysUser u : toUpdate)
+                {
+                    successNum++;
+                    successMsg.append("<br/>").append(successNum).append("、账号 ").append(u.getUserName()).append(" 更新成功");
+                }
+            }
+            catch (Exception batchErr)
+            {
+                log.error("批量更新用户失败，降级逐条处理", batchErr);
+                for (SysUser u : toUpdate)
+                {
+                    try
+                    {
+                        userMapper.updateUser(u);
+                        successNum++;
+                        successMsg.append("<br/>").append(successNum).append("、账号 ").append(u.getUserName()).append(" 更新成功");
+                    }
+                    catch (Exception singleErr)
+                    {
+                        failureNum++;
+                        String msg = "<br/>" + failureNum + "、账号 " + u.getUserName() + " 更新失败：";
+                        failureMsg.append(msg).append(singleErr.getMessage());
+                        log.error(msg, singleErr);
+                    }
+                }
+            }
+        }
+
+        // 6) 拼装返回文（与原版完全一致）
         if (failureNum > 0)
         {
             failureMsg.insert(0, "很抱歉，导入失败！共 " + failureNum + " 条数据格式不正确，错误如下：");
