@@ -1,10 +1,13 @@
 package com.zzyl.system.service.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import jakarta.validation.Validator;
 import org.slf4j.Logger;
@@ -235,21 +238,33 @@ public class SysUserServiceImpl implements ISysUserService
 
     /**
      * 校验用户是否有数据权限
-     * 
-     * @param userId 用户id
+     * <p>
+     * 优化说明（P1-5，原 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P1-5）：
+     * 由单值 (Long userId) 改为 varargs (Long... userIds)，支持批量校验场景。
+     * 内部走 SysUserMapper.selectUserList 的 params.userIds IN (...) 一次性查；
+     * 由 AOP @DataScope 注入权限过滤。admin 短路跳过；任一 userId 无权限即抛错。
+     *
+     * @param userIds 一个或多个用户ID
      */
     @Override
-    public void checkUserDataScope(Long userId)
+    public void checkUserDataScope(Long... userIds)
     {
-        if (!SecurityUtils.isAdmin())
+        if (SecurityUtils.isAdmin())
         {
-            SysUser user = new SysUser();
-            user.setUserId(userId);
-            List<SysUser> users = SpringUtils.getAopProxy(this).selectUserList(user);
-            if (StringUtils.isEmpty(users))
-            {
-                throw new ServiceException("没有权限访问用户数据！");
-            }
+            return;
+        }
+        if (userIds == null || userIds.length == 0)
+        {
+            return;
+        }
+        // 去重以兼容重复 ID
+        Set<Long> idSet = new HashSet<>(Arrays.asList(userIds));
+        SysUser query = new SysUser();
+        query.getParams().put("userIds", new ArrayList<>(idSet));
+        List<SysUser> users = SpringUtils.getAopProxy(this).selectUserList(query);
+        if (users == null || users.size() < idSet.size())
+        {
+            throw new ServiceException("没有权限访问用户数据！");
         }
     }
 
@@ -470,7 +485,16 @@ public class SysUserServiceImpl implements ISysUserService
 
     /**
      * 批量删除用户信息
-     * 
+     * <p>
+     * 优化说明（P1-5，原 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P1-5）：
+     * 原实现 N 个 userId 在循环里逐条调 checkUserAllowed + checkUserDataScope，
+     * 每次 checkUserDataScope 都会触发 1 次 selectUserList SQL，N 个 userId → N 次 SQL。
+     * 现改为：
+     *   1) selectUsersByIds 一次性查全部 user（不走 AOP）
+     *   2) 循环里仅做 checkUserAllowed（无 SQL）
+     *   3) checkUserDataScope(userIds) 一次性 IN 查询（AOP dataScope 自动拼权限过滤）
+     *   4) 删除走原有批量 API
+     *
      * @param userIds 需要删除的用户ID
      * @return 结果
      */
@@ -478,14 +502,25 @@ public class SysUserServiceImpl implements ISysUserService
     @Transactional
     public int deleteUserByIds(Long[] userIds)
     {
-        for (Long userId : userIds)
+        if (userIds == null || userIds.length == 0)
         {
-            checkUserAllowed(new SysUser(userId));
-            checkUserDataScope(userId);
+            return 0;
         }
-        // 删除用户与角色关联
+        // 1) 一次性查全部 user（不走 AOP，是服务内部校验用）
+        List<SysUser> users = userMapper.selectUsersByIds(Arrays.asList(userIds));
+        if (users.size() != userIds.length)
+        {
+            throw new ServiceException("存在无效的用户ID");
+        }
+        // 2) 校验 admin（无 SQL）
+        for (SysUser u : users)
+        {
+            checkUserAllowed(u);
+        }
+        // 3) 一次性数据范围校验
+        checkUserDataScope(userIds);
+        // 4) 删除（批量）
         userRoleMapper.deleteUserRole(userIds);
-        // 删除用户与岗位关联
         userPostMapper.deleteUserPost(userIds);
         return userMapper.deleteUserByIds(userIds);
     }

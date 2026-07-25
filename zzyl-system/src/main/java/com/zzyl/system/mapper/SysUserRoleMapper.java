@@ -29,11 +29,20 @@ public interface SysUserRoleMapper
 
     /**
      * 通过角色ID查询角色使用数量
-     * 
+     *
      * @param roleId 角色ID
      * @return 结果
      */
     public int countUserRoleByRoleId(Long roleId);
+
+    /**
+     * 批量统计多个角色已分配的用户数（用于 deleteRoleByIds 的 N+1 修复；详见
+     * DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P1-5）。
+     *
+     * @param roleIds 角色ID集合
+     * @return List&lt;Map{role_id, cnt}&gt;；未分配的角色不出现在结果中
+     */
+    public List<java.util.Map<String, Object>> countUserRoleByRoleIds(@Param("roleIds") List<Long> roleIds);
 
     /**
      * 批量新增用户角色信息

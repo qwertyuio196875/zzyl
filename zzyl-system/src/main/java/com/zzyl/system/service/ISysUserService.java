@@ -100,10 +100,14 @@ public interface ISysUserService
 
     /**
      * 校验用户是否有数据权限
-     * 
-     * @param userId 用户id
+     * <p>
+     * 支持单值/批量校验。批量场景由 SysUserServiceImpl.deleteUserByIds 等场景使用，
+     * 内部走 SysUserMapper.selectUserList 的 params.userIds IN (...) 一次性校验，
+     * 详见 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P1-5。
+     *
+     * @param userIds 一个或多个用户ID
      */
-    public void checkUserDataScope(Long userId);
+    public void checkUserDataScope(Long... userIds);
 
     /**
      * 新增用户信息

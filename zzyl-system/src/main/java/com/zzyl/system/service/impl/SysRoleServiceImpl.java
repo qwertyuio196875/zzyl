@@ -2,8 +2,10 @@ package com.zzyl.system.service.impl;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -190,24 +192,33 @@ public class SysRoleServiceImpl implements ISysRoleService
 
     /**
      * 校验角色是否有数据权限
-     * 
-     * @param roleIds 角色id
+     * <p>
+     * 优化说明（P1-5，原 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P1-5）：
+     * 原实现在内部循环里逐条查 selectRoleList，传入 N 个 roleId → N 次 SQL。
+     * 现改为一次性走 params.roleIds IN (...)，由 AOP @DataScope 注入权限过滤。
+     * 任一 roleId 无权限即抛错（"查完再抛"语义，业务上更优）。
+     *
+     * @param roleIds 一个或多个角色ID
      */
     @Override
     public void checkRoleDataScope(Long... roleIds)
     {
-        if (!SecurityUtils.isAdmin())
+        if (SecurityUtils.isAdmin())
         {
-            for (Long roleId : roleIds)
-            {
-                SysRole role = new SysRole();
-                role.setRoleId(roleId);
-                List<SysRole> roles = SpringUtils.getAopProxy(this).selectRoleList(role);
-                if (StringUtils.isEmpty(roles))
-                {
-                    throw new ServiceException("没有权限访问角色数据！");
-                }
-            }
+            return;
+        }
+        if (roleIds == null || roleIds.length == 0)
+        {
+            return;
+        }
+        // 去重以兼容重复 ID
+        Set<Long> idSet = new HashSet<>(Arrays.asList(roleIds));
+        SysRole query = new SysRole();
+        query.getParams().put("roleIds", new ArrayList<>(idSet));
+        List<SysRole> roles = SpringUtils.getAopProxy(this).selectRoleList(query);
+        if (roles == null || roles.size() < idSet.size())
+        {
+            throw new ServiceException("没有权限访问角色数据！");
         }
     }
 
@@ -352,7 +363,17 @@ public class SysRoleServiceImpl implements ISysRoleService
 
     /**
      * 批量删除角色信息
-     * 
+     * <p>
+     * 优化说明（P1-5，原 DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P1-5）：
+     * 原实现在循环里逐条做 checkRoleAllowed + checkRoleDataScope +
+     * selectRoleById + countUserRoleByRoleId，N 个 roleId → 3N 次 SQL。
+     * 现改为：
+     *   1) selectRolesByIds 一次性查全部 role（不走 AOP）
+     *   2) checkRoleAllowed 循环校验（无 SQL）
+     *   3) checkRoleDataScope(roleIds) 一次性 IN 校验
+     *   4) countUserRoleByRoleIds 一次性 GROUP BY 统计
+     *   5) 删除走原有批量 API
+     *
      * @param roleIds 需要删除的角色ID
      * @return 结果
      */
@@ -360,19 +381,50 @@ public class SysRoleServiceImpl implements ISysRoleService
     @Transactional
     public int deleteRoleByIds(Long[] roleIds)
     {
-        for (Long roleId : roleIds)
+        if (roleIds == null || roleIds.length == 0)
         {
-            checkRoleAllowed(new SysRole(roleId));
-            checkRoleDataScope(roleId);
-            SysRole role = selectRoleById(roleId);
-            if (countUserRoleByRoleId(roleId) > 0)
+            return 0;
+        }
+
+        // 1) 一次性查全部 role（不走 AOP）
+        List<SysRole> roles = roleMapper.selectRolesByIds(Arrays.asList(roleIds));
+        if (roles.size() != roleIds.length)
+        {
+            throw new ServiceException("存在无效的角色ID");
+        }
+
+        // 2) 校验 admin（无 SQL）
+        for (SysRole role : roles)
+        {
+            checkRoleAllowed(role);
+        }
+
+        // 3) 一次性数据范围校验
+        checkRoleDataScope(roleIds);
+
+        // 4) 批量统计已分配用户数（一次 GROUP BY）
+        List<Map<String, Object>> countList = userRoleMapper.countUserRoleByRoleIds(Arrays.asList(roleIds));
+        Map<Long, Long> countMap = new HashMap<>();
+        for (Map<String, Object> row : countList)
+        {
+            Object rid = row.get("role_id");
+            Object cnt = row.get("cnt");
+            if (rid != null && cnt != null)
+            {
+                countMap.put(((Number) rid).longValue(), ((Number) cnt).longValue());
+            }
+        }
+        for (SysRole role : roles)
+        {
+            Long cnt = countMap.get(role.getRoleId());
+            if (cnt != null && cnt > 0)
             {
                 throw new ServiceException(String.format("%1$s已分配,不能删除", role.getRoleName()));
             }
         }
-        // 删除角色与菜单关联
+
+        // 5) 删除（批量）
         roleMenuMapper.deleteRoleMenu(roleIds);
-        // 删除角色与部门关联
         roleDeptMapper.deleteRoleDept(roleIds);
         return roleMapper.deleteRoleByIds(roleIds);
     }

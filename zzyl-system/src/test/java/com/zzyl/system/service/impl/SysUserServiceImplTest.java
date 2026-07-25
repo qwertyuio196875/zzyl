@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.zzyl.common.core.domain.entity.SysUser;
 import com.zzyl.common.exception.ServiceException;
 import com.zzyl.common.utils.SecurityUtils;
+import com.zzyl.common.utils.spring.SpringUtils;
 import com.zzyl.system.mapper.SysPostMapper;
 import com.zzyl.system.mapper.SysRoleMapper;
 import com.zzyl.system.mapper.SysUserMapper;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -100,6 +102,18 @@ class SysUserServiceImplTest
         mocked.when(SecurityUtils::isAdmin).thenReturn(true);
         // isAdmin(Long)   → false：让 checkUserAllowed 不抛"不允许操作超级管理员"
         mocked.when(() -> SecurityUtils.isAdmin(any(Long.class))).thenReturn(false);
+        return mocked;
+    }
+
+    /**
+     * Mock SpringUtils.getAopProxy：单元测试无 Spring AOP Context，调
+     * AopContext.currentProxy() 会抛 IllegalStateException。让其直接返回 invoker
+     * 本身，等价于 "AOP 没拦到"，被测代码路径继续走通。
+     */
+    private static MockedStatic<SpringUtils> openSpringUtilsStub()
+    {
+        MockedStatic<SpringUtils> mocked = Mockito.mockStatic(SpringUtils.class);
+        mocked.when(() -> SpringUtils.getAopProxy(any())).thenAnswer(inv -> inv.getArgument(0));
         return mocked;
     }
 
@@ -213,5 +227,60 @@ class SysUserServiceImplTest
         assertTrue(result.contains("更新成功"), "降级路径应仍产成功消息");
         verify(userMapper, times(1)).batchUpdateUser(anyList());
         verify(userMapper, atLeastOnce()).updateUser(any(SysUser.class));
+    }
+
+    // =====================================================================
+    // P1-5: deleteUserByIds N+1 修复
+    // 验证: 1 次 selectUsersByIds + 1 次 selectUserList（批量 IN），不再逐条查
+    // =====================================================================
+
+    @Test
+    void deleteUserByIds_callsBatchSelectAndChecksOnce()
+    {
+        SysUser u1 = new SysUser(); u1.setUserId(101L); u1.setUserName("alice");
+        SysUser u2 = new SysUser(); u2.setUserId(102L); u2.setUserName("bob");
+        when(userMapper.selectUsersByIds(anyList())).thenReturn(java.util.Arrays.asList(u1, u2));
+        when(userMapper.selectUserList(any(SysUser.class))).thenReturn(java.util.Arrays.asList(u1, u2));
+        when(userMapper.deleteUserByIds(any(Long[].class))).thenReturn(2);
+
+        int rows;
+        try (MockedStatic<SecurityUtils> sec = Mockito.mockStatic(SecurityUtils.class);
+             MockedStatic<SpringUtils> spr = openSpringUtilsStub())
+        {
+            // isAdmin() 无参 = false: 让 checkUserDataScope 真正走 selectUserList
+            sec.when(SecurityUtils::isAdmin).thenReturn(false);
+            // isAdmin(Long)   = false: 让 checkUserAllowed 不抛"超级管理员"异常
+            sec.when(() -> SecurityUtils.isAdmin(anyLong())).thenReturn(false);
+            rows = service.deleteUserByIds(new Long[]{101L, 102L});
+        }
+
+        assertEquals(2, rows);
+        // 关键: 1 次批量查 user + 1 次 IN 校验，不再逐条
+        verify(userMapper, times(1)).selectUsersByIds(anyList());
+        verify(userMapper, times(1)).selectUserList(any(SysUser.class));
+        verify(userMapper, never()).selectUserById(anyLong());
+        verify(userMapper, times(1)).deleteUserByIds(any(Long[].class));
+    }
+
+    @Test
+    void deleteUserByIds_adminShortCircuitsDataScopeCheck()
+    {
+        SysUser u = new SysUser(); u.setUserId(101L); u.setUserName("alice");
+        when(userMapper.selectUsersByIds(anyList())).thenReturn(Collections.singletonList(u));
+        when(userMapper.deleteUserByIds(any(Long[].class))).thenReturn(1);
+
+        int rows;
+        try (MockedStatic<SecurityUtils> sec = Mockito.mockStatic(SecurityUtils.class);
+             MockedStatic<SpringUtils> spr = openSpringUtilsStub())
+        {
+            // isAdmin() = true: 短路 checkUserDataScope, 不调 selectUserList
+            sec.when(SecurityUtils::isAdmin).thenReturn(true);
+            rows = service.deleteUserByIds(new Long[]{101L});
+        }
+
+        assertEquals(1, rows);
+        verify(userMapper, times(1)).selectUsersByIds(anyList());
+        verify(userMapper, never()).selectUserList(any(SysUser.class));
+        verify(userMapper, times(1)).deleteUserByIds(any(Long[].class));
     }
 }

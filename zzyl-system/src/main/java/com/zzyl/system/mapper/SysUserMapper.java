@@ -46,11 +46,21 @@ public interface SysUserMapper
 
     /**
      * 通过用户ID查询用户
-     * 
+     *
      * @param userId 用户ID
      * @return 用户对象信息
      */
     public SysUser selectUserById(Long userId);
+
+    /**
+     * 通过用户ID集合批量查询（用于 deleteUserByIds 的 N+1 修复；详见
+     * DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P1-5）。不走 AOP dataScope，是
+     * 服务内部使用的批量校验入口。
+     *
+     * @param userIds 用户ID集合
+     * @return 用户信息集合
+     */
+    public List<SysUser> selectUsersByIds(@Param("userIds") List<Long> userIds);
 
     /**
      * 新增用户信息

@@ -1,6 +1,7 @@
 package com.zzyl.system.mapper;
 
 import java.util.List;
+import org.apache.ibatis.annotations.Param;
 import com.zzyl.common.core.domain.entity.SysRole;
 
 /**
@@ -43,11 +44,21 @@ public interface SysRoleMapper
 
     /**
      * 通过角色ID查询角色
-     * 
+     *
      * @param roleId 角色ID
      * @return 角色对象信息
      */
     public SysRole selectRoleById(Long roleId);
+
+    /**
+     * 通过角色ID集合批量查询（用于 deleteRoleByIds 的 N+1 修复；详见
+     * DATABASE_OPTIMIZATION_RECOMMENDATIONS.md §P1-5）。不走 AOP dataScope，
+     * 是服务内部使用的批量校验入口。
+     *
+     * @param roleIds 角色ID集合
+     * @return 角色信息集合
+     */
+    public List<SysRole> selectRolesByIds(@Param("roleIds") List<Long> roleIds);
 
     /**
      * 根据用户ID查询角色
