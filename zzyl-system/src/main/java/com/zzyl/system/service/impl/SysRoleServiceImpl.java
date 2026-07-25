@@ -386,9 +386,11 @@ public class SysRoleServiceImpl implements ISysRoleService
             return 0;
         }
 
+        // IN 集合天然去重, 用 distinctIds.size() 校验, 兼容重复 ID (避免 [1,1,2] 被误判)
+        Set<Long> distinctIds = new HashSet<>(Arrays.asList(roleIds));
         // 1) 一次性查全部 role（不走 AOP）
-        List<SysRole> roles = roleMapper.selectRolesByIds(Arrays.asList(roleIds));
-        if (roles.size() != roleIds.length)
+        List<SysRole> roles = roleMapper.selectRolesByIds(new ArrayList<>(distinctIds));
+        if (roles.size() != distinctIds.size())
         {
             throw new ServiceException("存在无效的角色ID");
         }

@@ -1,5 +1,6 @@
 package com.zzyl.system.service.impl;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -282,5 +283,36 @@ class SysUserServiceImplTest
         verify(userMapper, times(1)).selectUsersByIds(anyList());
         verify(userMapper, never()).selectUserList(any(SysUser.class));
         verify(userMapper, times(1)).deleteUserByIds(any(Long[].class));
+    }
+
+    /**
+     * 回归: 重复 ID [1,1,2] 不应被误判为"存在无效的用户ID"。
+     * MyBatis IN 集合天然去重, 用 distinctIds.size() 校验。
+     */
+    @Test
+    void deleteUserByIds_withDuplicateIds_succeeds()
+    {
+        SysUser u1 = new SysUser(); u1.setUserId(101L); u1.setUserName("alice");
+        SysUser u2 = new SysUser(); u2.setUserId(102L); u2.setUserName("bob");
+        when(userMapper.selectUsersByIds(anyList())).thenReturn(Arrays.asList(u1, u2));
+        when(userMapper.selectUserList(any(SysUser.class))).thenReturn(Arrays.asList(u1, u2));
+        when(userMapper.deleteUserByIds(any(Long[].class))).thenReturn(2);
+
+        int rows;
+        try (MockedStatic<SecurityUtils> sec = Mockito.mockStatic(SecurityUtils.class);
+             MockedStatic<SpringUtils> spr = openSpringUtilsStub())
+        {
+            sec.when(SecurityUtils::isAdmin).thenReturn(false);
+            sec.when(() -> SecurityUtils.isAdmin(anyLong())).thenReturn(false);
+            // 重复 ID 不抛错
+            rows = service.deleteUserByIds(new Long[]{101L, 101L, 102L});
+        }
+
+        assertEquals(2, rows);
+        verify(userMapper, times(1)).selectUsersByIds(anyList());
+        // 关键: 传给 mapper 的是去重后的列表 [101, 102]
+        ArgumentCaptor<List<Long>> cap = ArgumentCaptor.forClass(List.class);
+        verify(userMapper).selectUsersByIds(cap.capture());
+        assertEquals(2, cap.getValue().size());
     }
 }

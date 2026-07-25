@@ -506,9 +506,11 @@ public class SysUserServiceImpl implements ISysUserService
         {
             return 0;
         }
+        // IN 集合天然去重, 用 distinctIds.size() 校验, 兼容重复 ID (避免 [1,1,2] 被误判)
+        Set<Long> distinctIds = new HashSet<>(Arrays.asList(userIds));
         // 1) 一次性查全部 user（不走 AOP，是服务内部校验用）
-        List<SysUser> users = userMapper.selectUsersByIds(Arrays.asList(userIds));
-        if (users.size() != userIds.length)
+        List<SysUser> users = userMapper.selectUsersByIds(new ArrayList<>(distinctIds));
+        if (users.size() != distinctIds.size())
         {
             throw new ServiceException("存在无效的用户ID");
         }

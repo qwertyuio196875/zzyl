@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -155,5 +156,37 @@ class SysRoleServiceImplTest
         verify(roleMapper, times(1)).selectRolesByIds(anyList());
         verify(roleMapper, never()).selectRoleList(any(SysRole.class));
         verify(roleMapper, times(1)).deleteRoleByIds(any(Long[].class));
+    }
+
+    /**
+     * 回归: 重复 ID [1,1,2] 不应被误判为"存在无效的角色ID"。
+     * MyBatis IN 集合天然去重, 用 distinctIds.size() 校验。
+     */
+    @Test
+    void deleteRoleByIds_withDuplicateIds_succeeds()
+    {
+        SysRole r1 = newRole(201L, "管理员");
+        SysRole r2 = newRole(202L, "操作员");
+        when(roleMapper.selectRolesByIds(anyList())).thenReturn(Arrays.asList(r1, r2));
+        when(roleMapper.selectRoleList(any(SysRole.class))).thenReturn(Arrays.asList(r1, r2));
+        when(userRoleMapper.countUserRoleByRoleIds(anyList())).thenReturn(Collections.emptyList());
+        when(roleMapper.deleteRoleByIds(any(Long[].class))).thenReturn(2);
+
+        int rows;
+        try (MockedStatic<SecurityUtils> sec = Mockito.mockStatic(SecurityUtils.class);
+             MockedStatic<SpringUtils> spr = openSpringUtilsStub())
+        {
+            sec.when(SecurityUtils::isAdmin).thenReturn(false);
+            sec.when(() -> SecurityUtils.isAdmin(any(Long.class))).thenReturn(false);
+            // 重复 ID 不抛错
+            rows = service.deleteRoleByIds(new Long[]{201L, 201L, 202L});
+        }
+
+        assertEquals(2, rows);
+        verify(roleMapper, times(1)).selectRolesByIds(anyList());
+        // 关键: 传给 mapper 的是去重后的列表 [201, 202]
+        ArgumentCaptor<List<Long>> cap = ArgumentCaptor.forClass(List.class);
+        verify(roleMapper).selectRolesByIds(cap.capture());
+        assertEquals(2, cap.getValue().size());
     }
 }
