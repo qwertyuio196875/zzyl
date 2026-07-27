@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import com.zzyl.common.annotation.DataScope;
 import com.zzyl.common.constant.UserConstants;
 import com.zzyl.common.core.domain.TreeSelect;
@@ -288,7 +287,6 @@ public class SysDeptServiceImpl implements ISysDeptService
      * @param orderNums 排序数组
      */
     @Override
-    @Transactional
     public void updateDeptSort(String[] deptIds, String[] orderNums)
     {
         try

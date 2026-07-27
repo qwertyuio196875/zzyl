@@ -315,4 +315,40 @@ class SysUserServiceImplTest
         verify(userMapper).selectUsersByIds(cap.capture());
         assertEquals(2, cap.getValue().size());
     }
+
+    // =====================================================================
+    // P2-8: updateUser 先建后删
+    // 验证调用顺序: insertUserRole → insertUserPost → updateUser → deleteRoleByUserId → deletePostByUserId
+    // 避免"无角色无岗位"瞬时态
+    // =====================================================================
+
+    @Test
+    void updateUser_createsBeforeDeletes()
+    {
+        SysUser user = new SysUser();
+        user.setUserId(99L);
+        user.setUserName("alice");
+        user.setRoleIds(new Long[]{1L, 2L});
+        user.setPostIds(new Long[]{10L, 20L});
+        when(userMapper.updateUser(user)).thenReturn(1);
+
+        int rows;
+        try (MockedStatic<SecurityUtils> sec = Mockito.mockStatic(SecurityUtils.class);
+             MockedStatic<SpringUtils> spr = openSpringUtilsStub())
+        {
+            // 短路 SecurityUtils 调用，避免触发 SecurityContextHolder
+            sec.when(SecurityUtils::isAdmin).thenReturn(true);
+            rows = service.updateUser(user);
+        }
+
+        assertEquals(1, rows);
+
+        // 关键: 验证调用顺序为「先建后删」
+        org.mockito.InOrder inOrder = Mockito.inOrder(userRoleMapper, userPostMapper, userMapper);
+        inOrder.verify(userRoleMapper).batchUserRole(anyList());          // 1) insertUserRole
+        inOrder.verify(userPostMapper).batchUserPost(anyList());          // 2) insertUserPost
+        inOrder.verify(userMapper).updateUser(user);                      // 3) updateUser
+        inOrder.verify(userRoleMapper).deleteUserRoleByUserId(99L);       // 4) deleteRole（后置）
+        inOrder.verify(userPostMapper).deleteUserPostByUserId(99L);       // 5) deletePost（后置）
+    }
 }

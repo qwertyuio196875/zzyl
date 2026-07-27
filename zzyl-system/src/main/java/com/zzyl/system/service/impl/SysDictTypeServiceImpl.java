@@ -197,8 +197,16 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService
         int row = dictTypeMapper.updateDictType(dict);
         if (row > 0)
         {
+            // P2-8 最小改动：缓存写异常不影响 DB 事务提交，缓存最终一致可重建
             List<SysDictData> dictDatas = dictDataMapper.selectDictDataByType(dict.getDictType());
-            DictUtils.setDictCache(dict.getDictType(), dictDatas);
+            try
+            {
+                DictUtils.setDictCache(dict.getDictType(), dictDatas);
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
         }
         return row;
     }

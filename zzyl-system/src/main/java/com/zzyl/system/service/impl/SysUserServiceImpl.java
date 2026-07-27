@@ -310,15 +310,17 @@ public class SysUserServiceImpl implements ISysUserService
     public int updateUser(SysUser user)
     {
         Long userId = user.getUserId();
-        // 删除用户与角色关联
-        userRoleMapper.deleteUserRoleByUserId(userId);
+        // P2-8 最小改动：先建新关联再删旧关联，避免"无角色无岗位"瞬时态（即便事务原子，事务提交前中间表是空的，并发请求可能观察到无角色）
         // 新增用户与角色管理
         insertUserRole(user);
-        // 删除用户与岗位关联
-        userPostMapper.deleteUserPostByUserId(userId);
         // 新增用户与岗位管理
         insertUserPost(user);
-        return userMapper.updateUser(user);
+        int rows = userMapper.updateUser(user);
+        // 删除旧用户与角色关联
+        userRoleMapper.deleteUserRoleByUserId(userId);
+        // 删除旧用户与岗位关联
+        userPostMapper.deleteUserPostByUserId(userId);
+        return rows;
     }
 
     /**

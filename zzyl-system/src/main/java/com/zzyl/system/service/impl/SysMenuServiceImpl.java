@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import com.zzyl.common.constant.Constants;
 import com.zzyl.common.constant.UserConstants;
 import com.zzyl.common.core.domain.TreeSelect;
@@ -331,7 +330,6 @@ public class SysMenuServiceImpl implements ISysMenuService
      * @param orderNums 排序ID
      */
     @Override
-    @Transactional
     public void updateMenuSort(String[] menuIds, String[] orderNums)
     {
         try
