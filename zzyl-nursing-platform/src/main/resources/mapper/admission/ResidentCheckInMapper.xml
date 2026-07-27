@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  P1-7 修复说明：
+  elder_name / id_card / gender / age / phone / nursing_level_name / nursing_plan_name
+  为冗余字段，写入值统一由 ResidentCheckInServiceImpl 从 health_assessment / nursing_level / nursing_plan
+  单源回填，Mapper XML 保留写列以兼容历史数据展示与导出，下一阶段可评估清理。
+-->
 <mapper namespace="com.zzyl.admission.mapper.ResidentCheckInMapper">
 
     <resultMap type="com.zzyl.admission.domain.ResidentCheckIn" id="ResidentCheckInResult">

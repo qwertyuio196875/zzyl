@@ -17,6 +17,12 @@ import com.zzyl.common.utils.DateUtils;
 import com.zzyl.common.utils.SecurityUtils;
 import com.zzyl.common.utils.StringUtils;
 
+/**
+ * 退住申请 Service。
+ *
+ * P1-7 修复：退住表的 elder_name/id_card 沿用 check_in 来源（已由入住 Service 单源回填自
+ * health_assessment），保持单一来源链路，不接受前端任意值。
+ */
 @Service
 public class ResidentCheckOutServiceImpl implements IResidentCheckOutService
 {

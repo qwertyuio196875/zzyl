@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  P1-7 修复说明：
+  elder_name / id_card 为冗余字段，写入值统一由 ResidentCheckOutServiceImpl 从对应 resident_check_in
+  记录复制（其本身又由 ResidentCheckInServiceImpl 单源自 health_assessment 回填），保持单一来源链路。
+-->
 <mapper namespace="com.zzyl.admission.mapper.ResidentCheckOutMapper">
 
     <resultMap type="com.zzyl.admission.domain.ResidentCheckOut" id="ResidentCheckOutResult">

@@ -13,7 +13,18 @@ import com.zzyl.common.exception.ServiceException;
 import com.zzyl.common.utils.DateUtils;
 import com.zzyl.common.utils.SecurityUtils;
 import com.zzyl.common.utils.StringUtils;
+import com.zzyl.nursing.domain.NursingLevel;
+import com.zzyl.nursing.domain.NursingPlan;
+import com.zzyl.nursing.mapper.NursingLevelMapper;
+import com.zzyl.nursing.mapper.NursingPlanMapper;
 
+/**
+ * 入住办理 Service。
+ *
+ * P1-7 修复：冗余字段（elderName / idCard / gender / age / phone / nursingLevelName / nursingPlanName）
+ * 不再依赖前端任意传入，统一在 Service 层从权威表回填，避免多源真相。
+ * Mapper XML 保留冗余列的写是为了兼容历史数据展示与导出，下一阶段可清理。
+ */
 @Service
 public class ResidentCheckInServiceImpl implements IResidentCheckInService
 {
@@ -22,6 +33,12 @@ public class ResidentCheckInServiceImpl implements IResidentCheckInService
 
     @Autowired
     private HealthAssessmentMapper healthAssessmentMapper;
+
+    @Autowired
+    private NursingLevelMapper nursingLevelMapper;
+
+    @Autowired
+    private NursingPlanMapper nursingPlanMapper;
 
     @Override
     public ResidentCheckIn selectResidentCheckInById(Long id)
@@ -44,11 +61,13 @@ public class ResidentCheckInServiceImpl implements IResidentCheckInService
     @Override
     public int insertResidentCheckIn(ResidentCheckIn residentCheckIn)
     {
+        validateAssessment(residentCheckIn.getAssessmentId());
+        // 单源回填：从 health_assessment / nursing_level / nursing_plan 写入冗余字段
+        fillRedundantFieldsFromSources(residentCheckIn);
         if (StringUtils.isEmpty(residentCheckIn.getElderName()))
         {
             throw new ServiceException("老人姓名不能为空");
         }
-        validateAssessment(residentCheckIn.getAssessmentId());
         residentCheckIn.setCheckInNo(AdmissionNoUtils.checkInNo());
         if (StringUtils.isEmpty(residentCheckIn.getStatus()))
         {
@@ -71,6 +90,8 @@ public class ResidentCheckInServiceImpl implements IResidentCheckInService
             throw new ServiceException("当前状态不允许修改");
         }
         validateAssessment(residentCheckIn.getAssessmentId());
+        // 单源回填：每次更新都重新从权威表覆盖冗余字段，防止前端旧值污染
+        fillRedundantFieldsFromSources(residentCheckIn);
         residentCheckIn.setUpdateTime(DateUtils.getNowDate());
         return residentCheckInMapper.updateResidentCheckIn(residentCheckIn);
     }
@@ -138,6 +159,42 @@ public class ResidentCheckInServiceImpl implements IResidentCheckInService
         if (!"1".equals(assessment.getStatus()))
         {
             throw new ServiceException("须先完成健康评估再办理入住");
+        }
+    }
+
+    /**
+     * 单源回填冗余字段：覆盖前端任意传入值，确保 resident_check_in 与
+     * health_assessment / nursing_level / nursing_plan 保持一致。
+     */
+    private void fillRedundantFieldsFromSources(ResidentCheckIn target)
+    {
+        if (target.getAssessmentId() != null)
+        {
+            HealthAssessment assessment = healthAssessmentMapper.selectHealthAssessmentById(target.getAssessmentId());
+            if (assessment != null)
+            {
+                target.setElderName(assessment.getElderName());
+                target.setIdCard(assessment.getIdCard());
+                target.setGender(assessment.getGender());
+                target.setAge(assessment.getAge());
+                target.setPhone(assessment.getPhone());
+            }
+        }
+        if (target.getNursingLevelId() != null)
+        {
+            NursingLevel level = nursingLevelMapper.selectNursingLevelById(target.getNursingLevelId());
+            if (level != null)
+            {
+                target.setNursingLevelName(level.getName());
+            }
+        }
+        if (target.getNursingPlanId() != null)
+        {
+            NursingPlan plan = nursingPlanMapper.selectNursingPlanById(target.getNursingPlanId());
+            if (plan != null)
+            {
+                target.setNursingPlanName(plan.getPlanName());
+            }
         }
     }
 }
