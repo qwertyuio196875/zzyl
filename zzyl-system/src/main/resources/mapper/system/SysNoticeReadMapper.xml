@@ -78,8 +78,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where r.notice_id = #{noticeId}
         <if test="searchValue != null and searchValue != ''">
             and (
-                u.user_name like concat('%', #{searchValue}, '%')
-                or u.nick_name like concat('%', #{searchValue}, '%')
+                u.user_name like concat(#{searchValue}, '%')
+                or u.nick_name like concat(#{searchValue}, '%')
             )
         </if>
         order by r.read_time desc

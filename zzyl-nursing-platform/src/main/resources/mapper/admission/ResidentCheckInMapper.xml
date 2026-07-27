@@ -53,9 +53,9 @@
     <select id="selectResidentCheckInList" parameterType="com.zzyl.admission.domain.ResidentCheckIn" resultMap="ResidentCheckInResult">
         <include refid="selectResidentCheckInVo"/>
         <where>
-            <if test="elderName != null and elderName != ''"> and elder_name like concat('%', #{elderName}, '%')</if>
-            <if test="checkInNo != null and checkInNo != ''"> and check_in_no like concat('%', #{checkInNo}, '%')</if>
-            <if test="bedNo != null and bedNo != ''"> and bed_no like concat('%', #{bedNo}, '%')</if>
+            <if test="elderName != null and elderName != ''"> and elder_name like concat(#{elderName}, '%')</if>
+            <if test="checkInNo != null and checkInNo != ''"> and check_in_no like concat(#{checkInNo}, '%')</if>
+            <if test="bedNo != null and bedNo != ''"> and bed_no like concat(#{bedNo}, '%')</if>
             <if test="status != null and status != ''"> and status = #{status}</if>
         </where>
         order by create_time desc

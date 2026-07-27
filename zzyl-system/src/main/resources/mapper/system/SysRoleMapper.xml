@@ -44,19 +44,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 			</foreach>
 		</if>
 		<if test="roleName != null and roleName != ''">
-			AND r.role_name like concat('%', #{roleName}, '%')
+			AND r.role_name like concat(#{roleName}, '%')
 		</if>
 		<if test="status != null and status != ''">
 			AND r.status = #{status}
 		</if>
 		<if test="roleKey != null and roleKey != ''">
-			AND r.role_key like concat('%', #{roleKey}, '%')
+			AND r.role_key like concat(#{roleKey}, '%')
 		</if>
 		<if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
-			and date_format(r.create_time,'%Y%m%d') &gt;= date_format(#{params.beginTime},'%Y%m%d')
+			AND r.create_time &gt;= #{params.beginTime}
 		</if>
 		<if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
-			and date_format(r.create_time,'%Y%m%d') &lt;= date_format(#{params.endTime},'%Y%m%d')
+			AND r.create_time &lt; date_add(#{params.endTime}, interval 1 day)
 		</if>
 		<!-- 数据范围过滤 -->
 		${params.dataScope}

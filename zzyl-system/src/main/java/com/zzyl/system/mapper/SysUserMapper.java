@@ -37,8 +37,16 @@ public interface SysUserMapper
     public List<SysUser> selectUnallocatedList(SysUser user);
 
     /**
+     * 登录专用查询：仅查用户表，不 join 部门/角色，减少登录路径表扫描次数
+     *
+     * @param userName 用户名
+     * @return 用户对象（不含 dept/roles 集合）
+     */
+    public SysUser selectUserForLogin(String userName);
+
+    /**
      * 通过用户名查询用户
-     * 
+     *
      * @param userName 用户名
      * @return 用户对象信息
      */

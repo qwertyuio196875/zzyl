@@ -37,9 +37,9 @@
     <select id="selectHealthAssessmentList" parameterType="com.zzyl.admission.domain.HealthAssessment" resultMap="HealthAssessmentResult">
         <include refid="selectHealthAssessmentVo"/>
         <where>
-            <if test="elderName != null and elderName != ''"> and elder_name like concat('%', #{elderName}, '%')</if>
-            <if test="assessmentNo != null and assessmentNo != ''"> and assessment_no like concat('%', #{assessmentNo}, '%')</if>
-            <if test="idCard != null and idCard != ''"> and id_card like concat('%', #{idCard}, '%')</if>
+            <if test="elderName != null and elderName != ''"> and elder_name like concat(#{elderName}, '%')</if>
+            <if test="assessmentNo != null and assessmentNo != ''"> and assessment_no like concat(#{assessmentNo}, '%')</if>
+            <if test="idCard != null and idCard != ''"> and id_card like concat(#{idCard}, '%')</if>
             <if test="status != null and status != ''"> and status = #{status}</if>
         </where>
         order by create_time desc

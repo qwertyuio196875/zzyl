@@ -43,8 +43,8 @@
     <select id="selectResidentCheckOutList" parameterType="com.zzyl.admission.domain.ResidentCheckOut" resultMap="ResidentCheckOutResult">
         <include refid="selectResidentCheckOutVo"/>
         <where>
-            <if test="elderName != null and elderName != ''"> and elder_name like concat('%', #{elderName}, '%')</if>
-            <if test="checkOutNo != null and checkOutNo != ''"> and check_out_no like concat('%', #{checkOutNo}, '%')</if>
+            <if test="elderName != null and elderName != ''"> and elder_name like concat(#{elderName}, '%')</if>
+            <if test="checkOutNo != null and checkOutNo != ''"> and check_out_no like concat(#{checkOutNo}, '%')</if>
             <if test="status != null and status != ''"> and status = #{status}</if>
         </where>
         order by create_time desc

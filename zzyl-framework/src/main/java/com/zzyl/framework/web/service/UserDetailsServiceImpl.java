@@ -13,7 +13,7 @@ import com.zzyl.common.enums.UserStatus;
 import com.zzyl.common.exception.ServiceException;
 import com.zzyl.common.utils.MessageUtils;
 import com.zzyl.common.utils.StringUtils;
-import com.zzyl.system.service.ISysUserService;
+import com.zzyl.system.mapper.SysUserMapper;
 
 /**
  * 用户验证处理
@@ -26,7 +26,7 @@ public class UserDetailsServiceImpl implements UserDetailsService
     private static final Logger log = LoggerFactory.getLogger(UserDetailsServiceImpl.class);
 
     @Autowired
-    private ISysUserService userService;
+    private SysUserMapper userMapper;
     
     @Autowired
     private SysPasswordService passwordService;
@@ -37,7 +37,7 @@ public class UserDetailsServiceImpl implements UserDetailsService
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException
     {
-        SysUser user = userService.selectUserByUserName(username);
+        SysUser user = userMapper.selectUserForLogin(username);
         if (StringUtils.isNull(user))
         {
             log.info("登录用户：{} 不存在.", username);
