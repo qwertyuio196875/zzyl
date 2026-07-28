@@ -65,6 +65,13 @@
             <artifactId>zzyl-system</artifactId>
         </dependency>
 
+        <!-- 测试依赖（阶段 ② BaseMapper 验证用）-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
 </project>
