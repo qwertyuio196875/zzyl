@@ -42,6 +42,10 @@ nbdist/
 *.xml.versionsBackup
 *.swp
 
+# Markdown 文档（除 README.md 外全部不跟踪）
+*.md
+!README.md
+
 !*/build/*.java
 !*/build/*.html
 !*/build/*.xml
