@@ -1,5 +1,7 @@
 package com.zzyl.common.utils;
+// 缓存已托管至 CacheTtlProperties
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -7,6 +9,7 @@ import java.util.Map;
 import com.alibaba.fastjson2.JSONArray;
 import com.zzyl.common.constant.CacheConstants;
 import com.zzyl.common.core.domain.entity.SysDictData;
+import com.zzyl.common.core.redis.CacheTtlUtils;
 import com.zzyl.common.core.redis.RedisCache;
 import com.zzyl.common.utils.spring.SpringUtils;
 
@@ -24,13 +27,25 @@ public class DictUtils
 
     /**
      * 设置字典缓存
-     * 
+     *
      * @param key 参数键
      * @param dictDatas 字典数据列表
      */
     public static void setDictCache(String key, List<SysDictData> dictDatas)
     {
-        SpringUtils.getBean(RedisCache.class).setCacheObject(getCacheKey(key), dictDatas);
+        setDictCache(key, dictDatas, CacheTtlUtils.resolveSysDictTtl());
+    }
+
+    /**
+     * 设置字典缓存（带 TTL）
+     *
+     * @param key 参数键
+     * @param dictDatas 字典数据列表
+     * @param ttl 过期时间
+     */
+    public static void setDictCache(String key, List<SysDictData> dictDatas, Duration ttl)
+    {
+        SpringUtils.getBean(RedisCache.class).setCacheObject(getCacheKey(key), dictDatas, ttl);
     }
 
     /**

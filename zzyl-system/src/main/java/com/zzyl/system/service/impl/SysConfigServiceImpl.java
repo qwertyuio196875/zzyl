@@ -1,12 +1,16 @@
 package com.zzyl.system.service.impl;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.zzyl.common.constant.CacheConstants;
 import com.zzyl.common.constant.UserConstants;
+import com.zzyl.common.core.redis.CacheTtlUtils;
 import com.zzyl.common.core.redis.RedisCache;
 import com.zzyl.common.core.text.Convert;
 import com.zzyl.common.exception.ServiceException;
@@ -23,6 +27,8 @@ import com.zzyl.system.service.ISysConfigService;
 @Service
 public class SysConfigServiceImpl implements ISysConfigService
 {
+    private static final Logger log = LoggerFactory.getLogger(SysConfigServiceImpl.class);
+
     @Autowired
     private SysConfigMapper configMapper;
 
@@ -71,7 +77,7 @@ public class SysConfigServiceImpl implements ISysConfigService
         SysConfig retConfig = configMapper.selectConfig(config);
         if (StringUtils.isNotNull(retConfig))
         {
-            redisCache.setCacheObject(getCacheKey(configKey), retConfig.getConfigValue());
+            redisCache.setCacheObject(getCacheKey(configKey), retConfig.getConfigValue(), CacheTtlUtils.resolveSysConfigTtl());
             return retConfig.getConfigValue();
         }
         return StringUtils.EMPTY;
@@ -117,7 +123,8 @@ public class SysConfigServiceImpl implements ISysConfigService
         int row = configMapper.insertConfig(config);
         if (row > 0)
         {
-            redisCache.setCacheObject(getCacheKey(config.getConfigKey()), config.getConfigValue());
+            // 写流程统一为「先 DB 后删缓存」，下一次读自动回源并写入带 TTL 的新值
+            redisCache.deleteObject(getCacheKey(config.getConfigKey()));
         }
         return row;
     }
@@ -140,7 +147,8 @@ public class SysConfigServiceImpl implements ISysConfigService
         int row = configMapper.updateConfig(config);
         if (row > 0)
         {
-            redisCache.setCacheObject(getCacheKey(config.getConfigKey()), config.getConfigValue());
+            // 写流程统一为「先 DB 后删缓存」，下一次读自动回源并写入带 TTL 的新值
+            redisCache.deleteObject(getCacheKey(config.getConfigKey()));
         }
         return row;
     }
@@ -172,9 +180,10 @@ public class SysConfigServiceImpl implements ISysConfigService
     public void loadingConfigCache()
     {
         List<SysConfig> configsList = configMapper.selectConfigList(new SysConfig());
+        Duration ttl = CacheTtlUtils.resolveSysConfigTtl();
         for (SysConfig config : configsList)
         {
-            redisCache.setCacheObject(getCacheKey(config.getConfigKey()), config.getConfigValue());
+            redisCache.setCacheObject(getCacheKey(config.getConfigKey()), config.getConfigValue(), ttl);
         }
     }
 
@@ -184,8 +193,15 @@ public class SysConfigServiceImpl implements ISysConfigService
     @Override
     public void clearConfigCache()
     {
-        Collection<String> keys = redisCache.keys(CacheConstants.SYS_CONFIG_KEY + "*");
-        redisCache.deleteObject(keys);
+        try
+        {
+            Collection<String> keys = redisCache.keys(CacheConstants.SYS_CONFIG_KEY + "*");
+            redisCache.deleteObject(keys);
+        }
+        catch (Exception e)
+        {
+            log.error("清空参数缓存失败：{}", e.getMessage());
+        }
     }
 
     /**

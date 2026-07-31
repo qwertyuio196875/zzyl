@@ -20,7 +20,8 @@ import com.zzyl.system.service.ISysDictTypeService;
 
 /**
  * 字典 业务层处理
- * 
+ * 缓存已托管至 CacheTtlProperties
+ *
  * @author ruoyi
  */
 @Service
@@ -177,7 +178,8 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService
         int row = dictTypeMapper.insertDictType(dict);
         if (row > 0)
         {
-            DictUtils.setDictCache(dict.getDictType(), null);
+            // 避免用 null 覆盖带 TTL 的占位，改用 removeDictCache 触发下一次读回源
+            DictUtils.removeDictCache(dict.getDictType());
         }
         return row;
     }

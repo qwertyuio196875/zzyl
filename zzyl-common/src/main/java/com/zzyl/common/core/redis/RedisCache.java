@@ -1,5 +1,6 @@
 package com.zzyl.common.core.redis;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -30,10 +31,28 @@ public class RedisCache
      *
      * @param key 缓存的键值
      * @param value 缓存的值
+     * @deprecated 新代码必须指定 TTL，请使用 {@link #setCacheObject(String, Object, Duration)}
      */
+    @Deprecated
     public <T> void setCacheObject(final String key, final T value)
     {
         redisTemplate.opsForValue().set(key, value);
+    }
+
+    /**
+     * 缓存基本对象（带 TTL，传入 Duration.ZERO / null 时不设置过期）。
+     *
+     * @param key   缓存键
+     * @param value 缓存值
+     * @param ttl   过期时间，传 null 表示沿用旧行为（不设置 TTL）
+     */
+    public <T> void setCacheObject(final String key, final T value, final Duration ttl)
+    {
+        if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+            redisTemplate.opsForValue().set(key, value);
+            return;
+        }
+        redisTemplate.opsForValue().set(key, value, ttl.toSeconds(), TimeUnit.SECONDS);
     }
 
     /**

@@ -97,6 +97,15 @@ spring:
         options:
           model: qwen3.7-plus
 
+# 缓存 TTL 配置（仅作用于系统参数 / 字典等基础数据）
+zzyl:
+  cache:
+    ttl:
+      enabled: true
+      sys-config: 24h
+      sys-dict: 24h
+      jitter: 30m
+
 # token配置
 token:
   # 令牌自定义标识

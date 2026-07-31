@@ -1,6 +1,8 @@
 package com.zzyl.system.service.impl;
 
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.zzyl.common.core.domain.entity.SysDictData;
@@ -10,12 +12,15 @@ import com.zzyl.system.service.ISysDictDataService;
 
 /**
  * 字典 业务层处理
+ * 缓存已托管至 CacheTtlProperties
  * 
  * @author ruoyi
  */
 @Service
 public class SysDictDataServiceImpl implements ISysDictDataService
 {
+    private static final Logger log = LoggerFactory.getLogger(SysDictDataServiceImpl.class);
+
     @Autowired
     private SysDictDataMapper dictDataMapper;
 
@@ -86,14 +91,21 @@ public class SysDictDataServiceImpl implements ISysDictDataService
         if (row > 0)
         {
             List<SysDictData> dictDatas = dictDataMapper.selectDictDataByType(data.getDictType());
-            DictUtils.setDictCache(data.getDictType(), dictDatas);
+            try
+            {
+                DictUtils.setDictCache(data.getDictType(), dictDatas);
+            }
+            catch (Exception e)
+            {
+                log.error("新增字典数据缓存失败：{}", e.getMessage());
+            }
         }
         return row;
     }
 
     /**
      * 修改保存字典数据信息
-     * 
+     *
      * @param data 字典数据信息
      * @return 结果
      */
@@ -104,7 +116,14 @@ public class SysDictDataServiceImpl implements ISysDictDataService
         if (row > 0)
         {
             List<SysDictData> dictDatas = dictDataMapper.selectDictDataByType(data.getDictType());
-            DictUtils.setDictCache(data.getDictType(), dictDatas);
+            try
+            {
+                DictUtils.setDictCache(data.getDictType(), dictDatas);
+            }
+            catch (Exception e)
+            {
+                log.error("修改字典数据缓存失败：{}", e.getMessage());
+            }
         }
         return row;
     }
