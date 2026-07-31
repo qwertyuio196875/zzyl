@@ -49,3 +49,44 @@ nbdist/
 !*/build/*.java
 !*/build/*.html
 !*/build/*.xml
+
+######################################################################
+# Editor & Tooling 局部配置
+.vscode/
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/usage.statistics.xml
+
+######################################################################
+# OpenCode / AI 助手运行产物
+.omo/
+.codex/
+.aider*
+
+######################################################################
+# Spring Boot 运行日志 / 错误流
+*.err
+/logs/
+**/logs/
+app.err
+nohup.out
+
+######################################################################
+# RuoYi 默认生成文件
+HELP.md
+/zzyl-admin/bin/
+/zzyl-admin/src/main/resources/application-local*.yml
+/zzyl-admin/src/main/resources/application-test*.yml
+
+######################################################################
+# OS / 杂项
+.DS_Store
+Thumbs.db
+*.sw?
+*~
+*.bak
+*.tmp
+*.orig
+*.rej
+*.tar.gz
+*.zip
