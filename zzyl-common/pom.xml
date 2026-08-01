@@ -113,6 +113,13 @@
             <artifactId>jakarta.servlet-api</artifactId>
         </dependency>
 
+        <!-- JUnit 5 for unit tests -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
 </project>
