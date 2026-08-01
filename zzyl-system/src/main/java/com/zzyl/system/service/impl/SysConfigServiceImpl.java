@@ -1,7 +1,6 @@
 package com.zzyl.system.service.impl;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.List;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -11,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.zzyl.common.constant.CacheConstants;
 import com.zzyl.common.constant.UserConstants;
 import com.zzyl.common.core.redis.CacheTtlUtils;
+import com.zzyl.common.core.redis.NullValue;
 import com.zzyl.common.core.redis.RedisCache;
 import com.zzyl.common.core.text.Convert;
 import com.zzyl.common.exception.ServiceException;
@@ -67,18 +67,40 @@ public class SysConfigServiceImpl implements ISysConfigService
     @Override
     public String selectConfigByKey(String configKey)
     {
-        String configValue = Convert.toStr(redisCache.getCacheObject(getCacheKey(configKey)));
+        String configValue = null;
+        try
+        {
+            configValue = Convert.toStr(redisCache.getCacheObject(getCacheKey(configKey)));
+        }
+        catch (Exception e)
+        {
+            log.warn("sys_config 缓存读取失败，降级到 DB key={}", configKey, e);
+        }
         if (StringUtils.isNotEmpty(configValue))
         {
             return configValue;
         }
+
         SysConfig config = new SysConfig();
         config.setConfigKey(configKey);
         SysConfig retConfig = configMapper.selectConfig(config);
-        if (StringUtils.isNotNull(retConfig))
+
+        try
         {
-            redisCache.setCacheObject(getCacheKey(configKey), retConfig.getConfigValue(), CacheTtlUtils.resolveSysConfigTtl());
-            return retConfig.getConfigValue();
+            if (StringUtils.isNotNull(retConfig))
+            {
+                redisCache.setCacheObject(getCacheKey(configKey), retConfig.getConfigValue(),
+                        CacheTtlUtils.resolveSysConfigTtl());
+                return retConfig.getConfigValue();
+            }
+            else
+            {
+                redisCache.setCacheObject(getCacheKey(configKey), NullValue.INSTANCE, Duration.ofSeconds(45));
+            }
+        }
+        catch (Exception e)
+        {
+            log.warn("sys_config 缓存写入失败 key={}", configKey, e);
         }
         return StringUtils.EMPTY;
     }
@@ -124,7 +146,7 @@ public class SysConfigServiceImpl implements ISysConfigService
         if (row > 0)
         {
             // 写流程统一为「先 DB 后删缓存」，下一次读自动回源并写入带 TTL 的新值
-            redisCache.deleteObject(getCacheKey(config.getConfigKey()));
+            safeDeleteCache(config.getConfigKey());
         }
         return row;
     }
@@ -141,14 +163,14 @@ public class SysConfigServiceImpl implements ISysConfigService
         SysConfig temp = configMapper.selectConfigById(config.getConfigId());
         if (!StringUtils.equals(temp.getConfigKey(), config.getConfigKey()))
         {
-            redisCache.deleteObject(getCacheKey(temp.getConfigKey()));
+            safeDeleteCache(temp.getConfigKey());
         }
 
         int row = configMapper.updateConfig(config);
         if (row > 0)
         {
             // 写流程统一为「先 DB 后删缓存」，下一次读自动回源并写入带 TTL 的新值
-            redisCache.deleteObject(getCacheKey(config.getConfigKey()));
+            safeDeleteCache(config.getConfigKey());
         }
         return row;
     }
@@ -169,7 +191,7 @@ public class SysConfigServiceImpl implements ISysConfigService
                 throw new ServiceException(String.format("内置参数【%1$s】不能删除 ", config.getConfigKey()));
             }
             configMapper.deleteConfigById(configId);
-            redisCache.deleteObject(getCacheKey(config.getConfigKey()));
+            safeDeleteCache(config.getConfigKey());
         }
     }
 
@@ -180,10 +202,13 @@ public class SysConfigServiceImpl implements ISysConfigService
     public void loadingConfigCache()
     {
         List<SysConfig> configsList = configMapper.selectConfigList(new SysConfig());
-        Duration ttl = CacheTtlUtils.resolveSysConfigTtl();
         for (SysConfig config : configsList)
         {
-            redisCache.setCacheObject(getCacheKey(config.getConfigKey()), config.getConfigValue(), ttl);
+            redisCache.setCacheObject(
+                getCacheKey(config.getConfigKey()),
+                config.getConfigValue(),
+                CacheTtlUtils.resolveSysConfigTtl()
+            );
         }
     }
 
@@ -195,8 +220,11 @@ public class SysConfigServiceImpl implements ISysConfigService
     {
         try
         {
-            Collection<String> keys = redisCache.keys(CacheConstants.SYS_CONFIG_KEY + "*");
-            redisCache.deleteObject(keys);
+            List<String> keys = redisCache.scan(CacheConstants.SYS_CONFIG_KEY + "*", 1000L);
+            if (keys != null && !keys.isEmpty())
+            {
+                redisCache.deleteObjects(keys);
+            }
         }
         catch (Exception e)
         {
@@ -234,12 +262,29 @@ public class SysConfigServiceImpl implements ISysConfigService
 
     /**
      * 设置cache key
-     * 
+     *
      * @param configKey 参数键
      * @return 缓存键key
      */
     private String getCacheKey(String configKey)
     {
         return CacheConstants.SYS_CONFIG_KEY + configKey;
+    }
+
+    /**
+     * 安全的缓存失效：Redis 异常不影响 DB 写流程的返回值，依赖 TTL 兜底。
+     *
+     * @param configKey 参数键
+     */
+    private void safeDeleteCache(String configKey)
+    {
+        try
+        {
+            redisCache.deleteObject(getCacheKey(configKey));
+        }
+        catch (Exception e)
+        {
+            log.warn("sys_config 缓存失效失败 key={}，等 TTL 兜底", configKey, e);
+        }
     }
 }

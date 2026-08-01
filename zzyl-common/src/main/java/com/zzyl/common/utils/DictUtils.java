@@ -2,7 +2,6 @@ package com.zzyl.common.utils;
 // 缓存已托管至 CacheTtlProperties
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +55,15 @@ public class DictUtils
      */
     public static List<SysDictData> getDictCache(String key)
     {
-        JSONArray arrayCache = SpringUtils.getBean(RedisCache.class).getCacheObject(getCacheKey(key));
+        JSONArray arrayCache = null;
+        try
+        {
+            arrayCache = SpringUtils.getBean(RedisCache.class).getCacheObject(getCacheKey(key));
+        }
+        catch (Exception e)
+        {
+            // 字典缓存读取失败，降级到 DB（getDictCache 返回 null 时调用方自然回源）
+        }
         if (StringUtils.isNotNull(arrayCache))
         {
             return arrayCache.toList(SysDictData.class);
@@ -215,8 +222,18 @@ public class DictUtils
      */
     public static void clearDictCache()
     {
-        Collection<String> keys = SpringUtils.getBean(RedisCache.class).keys(CacheConstants.SYS_DICT_KEY + "*");
-        SpringUtils.getBean(RedisCache.class).deleteObject(keys);
+        try
+        {
+            List<String> keys = SpringUtils.getBean(RedisCache.class).scan(CacheConstants.SYS_DICT_KEY + "*", 1000L);
+            if (keys != null && !keys.isEmpty())
+            {
+                SpringUtils.getBean(RedisCache.class).deleteObjects(keys);
+            }
+        }
+        catch (Exception e)
+        {
+            // 静默继续；管理操作不影响字典查询主路径
+        }
     }
 
     /**
