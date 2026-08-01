@@ -105,6 +105,7 @@ zzyl:
       sys-config: 24h
       sys-dict: 24h
       jitter: 30m
+    key-prefix: ${ZZYL_CACHE_KEY_PREFIX:local}
 
 # token配置
 token:

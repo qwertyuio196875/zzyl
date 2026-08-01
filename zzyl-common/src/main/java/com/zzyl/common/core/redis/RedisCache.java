@@ -1,16 +1,22 @@
 package com.zzyl.common.core.redis;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.BoundSetOperations;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +31,8 @@ public class RedisCache
 {
     @Autowired
     public RedisTemplate redisTemplate;
+
+    private static final Logger log = LoggerFactory.getLogger(RedisCache.class);
 
     /**
      * 缓存基本的对象，Integer、String、实体类等
@@ -283,5 +291,73 @@ public class RedisCache
     public Collection<String> keys(final String pattern)
     {
         return redisTemplate.keys(pattern);
+    }
+
+    /**
+     * SCAN 命令替代 KEYS，避免阻塞 Redis 主线程。
+     * O(N) 但非阻塞，使用 cursor 分批返回。
+     *
+     * @param pattern 匹配模式，如 "sys_config:*"
+     * @param count 单次返回数量上限（建议 100~1000）
+     * @return 匹配的 Key 列表；扫描失败返回空列表（不抛异常）
+     */
+    public List<String> scan(final String pattern, final long count)
+    {
+        List<String> result = new ArrayList<>();
+        try (Cursor<String> cursor = redisTemplate.scan(
+                ScanOptions.scanOptions().match(pattern).count(count).build()))
+        {
+            cursor.forEachRemaining(result::add);
+        }
+        catch (Exception e)
+        {
+            log.warn("Redis SCAN 失败 pattern={}", pattern, e);
+            return Collections.emptyList();
+        }
+        return result;
+    }
+
+    /**
+     * 原子自增（用于全局唯一序列号生成）。
+     *
+     * @param key Redis 键
+     * @return 自增后的值；Redis 不可用时返回 null
+     */
+    public Long increment(final String key)
+    {
+        return redisTemplate.opsForValue().increment(key);
+    }
+
+    /**
+     * 设置有效时间（Duration 重载）。
+     * 注意：已有 expire(String, long) 用秒为单位；本重载接受 Duration。
+     *
+     * @param key Redis 键
+     * @param ttl 过期时间；null/zero/negative 直接返回 false
+     * @return true=设置成功；false=设置失败或参数无效
+     */
+    public boolean expire(final String key, final Duration ttl)
+    {
+        if (ttl == null || ttl.isZero() || ttl.isNegative())
+        {
+            return false;
+        }
+        return Boolean.TRUE.equals(redisTemplate.expire(key, ttl));
+    }
+
+    /**
+     * 批量删除（区别于 deleteObject(Collection) 返回 boolean，本方法返回删除数量）。
+     * 接受 null / empty 输入，返回 0 不抛异常。
+     *
+     * @param keys 要删除的 Key 集合
+     * @return 实际删除的 Key 数量
+     */
+    public Long deleteObjects(final Collection<String> keys)
+    {
+        if (keys == null || keys.isEmpty())
+        {
+            return 0L;
+        }
+        return redisTemplate.delete(keys);
     }
 }
