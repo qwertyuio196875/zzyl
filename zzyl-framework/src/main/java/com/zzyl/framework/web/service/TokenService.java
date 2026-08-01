@@ -2,6 +2,7 @@ package com.zzyl.framework.web.service;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -239,32 +240,42 @@ public class TokenService
      */
     public void refreshPermissionByRoleId(Long roleId, SysPermissionService permissionService)
     {
-        // 扫描所有在线 token
-        String pattern = CacheConstants.LOGIN_TOKEN_KEY + "*";
-        Collection<String> keys = redisCache.keys(pattern);
-        if (keys == null || keys.isEmpty())
+        try
         {
-            return;
+            String pattern = CacheConstants.LOGIN_TOKEN_KEY + "*";
+            List<String> keys = redisCache.scan(pattern, 1000L);
+            if (keys.isEmpty())
+            {
+                return;
+            }
+            for (String key : keys)
+            {
+                LoginUser loginUser = redisCache.getCacheObject(key);
+                if (loginUser == null || loginUser.getUser() == null || loginUser.getUser().isAdmin())
+                {
+                    continue;
+                }
+                boolean hasRole = loginUser.getUser().getRoles() != null
+                        && loginUser.getUser().getRoles().stream().anyMatch(r -> roleId.equals(r.getRoleId()));
+                if (!hasRole)
+                {
+                    continue;
+                }
+                loginUser.setPermissions(permissionService.getMenuPermission(loginUser.getUser()));
+                try
+                {
+                    refreshToken(loginUser);
+                }
+                catch (Exception e)
+                {
+                    log.warn("刷新权限缓存失败 user={}", loginUser.getUsername(), e);
+                }
+                log.info("角色[{}]权限变更，已刷新在线用户[{}]的权限缓存", roleId, loginUser.getUsername());
+            }
         }
-        for (String key : keys)
+        catch (Exception e)
         {
-            LoginUser loginUser = redisCache.getCacheObject(key);
-            if (loginUser == null || loginUser.getUser() == null || loginUser.getUser().isAdmin())
-            {
-                // 管理员拥有所有权限，跳过
-                continue;
-            }
-            // 判断该用户是否拥有此角色
-            boolean hasRole = loginUser.getUser().getRoles() != null
-                    && loginUser.getUser().getRoles().stream().anyMatch(r -> roleId.equals(r.getRoleId()));
-            if (!hasRole)
-            {
-                continue;
-            }
-            // 刷新权限缓存
-            loginUser.setPermissions(permissionService.getMenuPermission(loginUser.getUser()));
-            refreshToken(loginUser);
-            log.info("角色[{}]权限变更，已刷新在线用户[{}]的权限缓存", roleId, loginUser.getUsername());
+            log.error("刷新角色权限失败 roleId={}", roleId, e);
         }
     }
 }
