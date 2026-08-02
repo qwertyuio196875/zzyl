@@ -171,6 +171,26 @@
         where id = #{id}
     </update>
 
+    <!-- O6: 确认入住(带 status 条件 update,返回 0 表示状态已变更/记录不存在) -->
+    <update id="confirmCheckIn" parameterType="com.zzyl.admission.domain.ResidentCheckIn">
+        UPDATE resident_check_in
+        SET status = '2',
+            handler = #{handler},
+            check_in_date = COALESCE(check_in_date, #{checkInDate}),
+            update_time = #{updateTime}
+        WHERE id = #{id}
+          AND status IN ('0', '1')
+    </update>
+
+    <!-- O6: 取消入住(带 status 条件 update,返回 0 表示状态已变更/记录不存在) -->
+    <update id="cancelCheckIn" parameterType="com.zzyl.admission.domain.ResidentCheckIn">
+        UPDATE resident_check_in
+        SET status = '3',
+            update_time = #{updateTime}
+        WHERE id = #{id}
+          AND status IN ('0', '1')
+    </update>
+
     <delete id="deleteResidentCheckInById" parameterType="Long">
         delete from resident_check_in where id = #{id}
     </delete>

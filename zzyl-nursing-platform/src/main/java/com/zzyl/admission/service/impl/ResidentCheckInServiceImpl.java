@@ -105,44 +105,37 @@ public class ResidentCheckInServiceImpl implements IResidentCheckInService
     @Override
     public int confirmCheckIn(Long id)
     {
-        ResidentCheckIn checkIn = residentCheckInMapper.selectResidentCheckInById(id);
-        if (checkIn == null)
-        {
-            throw new ServiceException("入住记录不存在");
-        }
-        if (!"0".equals(checkIn.getStatus()) && !"1".equals(checkIn.getStatus()))
-        {
-            throw new ServiceException("仅待办理或办理中的记录可确认入住");
-        }
+        // O6:DB 条件 UPDATE 替代 select-then-update,rows == 0 等同于"状态机已推进或记录不存在"
         ResidentCheckIn update = new ResidentCheckIn();
         update.setId(id);
         update.setStatus("2");
         update.setHandler(SecurityUtils.getUsername());
-        if (checkIn.getCheckInDate() == null)
-        {
-            update.setCheckInDate(DateUtils.getNowDate());
-        }
+        update.setCheckInDate(DateUtils.getNowDate());
         update.setUpdateTime(DateUtils.getNowDate());
-        return residentCheckInMapper.updateResidentCheckIn(update);
+
+        int rows = residentCheckInMapper.confirmCheckIn(update);
+        if (rows == 0)
+        {
+            throw new ServiceException("状态已变更，请刷新后重试");
+        }
+        return rows;
     }
 
     @Override
     public int cancelCheckIn(Long id)
     {
-        ResidentCheckIn checkIn = residentCheckInMapper.selectResidentCheckInById(id);
-        if (checkIn == null)
-        {
-            throw new ServiceException("入住记录不存在");
-        }
-        if ("2".equals(checkIn.getStatus()) || "4".equals(checkIn.getStatus()))
-        {
-            throw new ServiceException("已入住或已退住的记录不能取消");
-        }
+        // O6:DB 条件 UPDATE 替代 select-then-update,rows == 0 等同于"状态机已推进或记录不存在"
         ResidentCheckIn update = new ResidentCheckIn();
         update.setId(id);
         update.setStatus("3");
         update.setUpdateTime(DateUtils.getNowDate());
-        return residentCheckInMapper.updateResidentCheckIn(update);
+
+        int rows = residentCheckInMapper.cancelCheckIn(update);
+        if (rows == 0)
+        {
+            throw new ServiceException("状态已变更，请刷新后重试");
+        }
+        return rows;
     }
 
     private void validateAssessment(Long assessmentId)
