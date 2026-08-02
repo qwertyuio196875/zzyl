@@ -193,27 +193,38 @@ class ResidentCheckInServiceImplTest
     @Test
     void confirmShouldSetCheckedInStatus()
     {
-        ResidentCheckIn existing = new ResidentCheckIn();
-        existing.setId(1L);
-        existing.setStatus("1");
-        when(residentCheckInMapper.selectResidentCheckInById(1L)).thenReturn(existing);
-        when(residentCheckInMapper.updateResidentCheckIn(any())).thenReturn(1);
+        // O6:confirmCheckIn 现在走条件 UPDATE,rows==1 表示成功
+        when(residentCheckInMapper.confirmCheckIn(any())).thenReturn(1);
 
         try (MockedStatic<SecurityUtils> securityUtils = mockStatic(SecurityUtils.class))
         {
             securityUtils.when(SecurityUtils::getUsername).thenReturn("admin");
             int rows = residentCheckInService.confirmCheckIn(1L);
             assertEquals(1, rows);
+            verify(residentCheckInMapper).confirmCheckIn(any());
+            // 状态判定由 DB WHERE 条件承担,Service 不再 select
+            verify(residentCheckInMapper, org.mockito.Mockito.never()).selectResidentCheckInById(1L);
+        }
+    }
+
+    @Test
+    void confirmShouldThrowWhenStatusAlreadyChanged()
+    {
+        // O6:rows==0 表示 DB 条件不满足(status 已被并发改成 '2'/'3'/'4')
+        when(residentCheckInMapper.confirmCheckIn(any())).thenReturn(0);
+
+        try (MockedStatic<SecurityUtils> securityUtils = mockStatic(SecurityUtils.class))
+        {
+            securityUtils.when(SecurityUtils::getUsername).thenReturn("admin");
+            assertThrows(ServiceException.class, () -> residentCheckInService.confirmCheckIn(1L));
         }
     }
 
     @Test
     void cancelShouldRejectCheckedInRecord()
     {
-        ResidentCheckIn existing = new ResidentCheckIn();
-        existing.setId(1L);
-        existing.setStatus("2");
-        when(residentCheckInMapper.selectResidentCheckInById(1L)).thenReturn(existing);
+        // O6:取消判断改由 DB 条件 UPDATE 承担;rows==0 等价于"状态不允许"
+        when(residentCheckInMapper.cancelCheckIn(any())).thenReturn(0);
 
         assertThrows(ServiceException.class, () -> residentCheckInService.cancelCheckIn(1L));
     }
@@ -221,16 +232,15 @@ class ResidentCheckInServiceImplTest
     @Test
     void cancelShouldAcceptPendingRecord()
     {
-        ResidentCheckIn existing = new ResidentCheckIn();
-        existing.setId(1L);
-        existing.setStatus("0");
-        when(residentCheckInMapper.selectResidentCheckInById(1L)).thenReturn(existing);
-        when(residentCheckInMapper.updateResidentCheckIn(any())).thenReturn(1);
+        // O6:rows==1 表示成功(status 仍为 '0'/'1')
+        when(residentCheckInMapper.cancelCheckIn(any())).thenReturn(1);
 
         int rows = residentCheckInService.cancelCheckIn(1L);
 
         assertEquals(1, rows);
-        verify(residentCheckInMapper).updateResidentCheckIn(any());
+        verify(residentCheckInMapper).cancelCheckIn(any());
+        // Service 不再 select;不会触发单源回填
+        verify(residentCheckInMapper, org.mockito.Mockito.never()).selectResidentCheckInById(1L);
         verifyNoInteractions(healthAssessmentMapper, nursingLevelMapper, nursingPlanMapper);
     }
 }
