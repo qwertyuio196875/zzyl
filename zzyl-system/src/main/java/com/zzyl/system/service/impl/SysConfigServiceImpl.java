@@ -70,7 +70,13 @@ public class SysConfigServiceImpl implements ISysConfigService
         String configValue = null;
         try
         {
-            configValue = Convert.toStr(redisCache.getCacheObject(getCacheKey(configKey)));
+            Object cached = redisCache.getCacheObject(getCacheKey(configKey));
+            if (cached instanceof NullValue)
+            {
+                // 命中空标记 → 模拟"DB 不存在"，返回空字符串
+                return StringUtils.EMPTY;
+            }
+            configValue = Convert.toStr(cached);
         }
         catch (Exception e)
         {
